@@ -31,6 +31,8 @@ struct DocumentState {
             selectors = nullptr;
         }
         if (parser) {
+            // Lexbor's parser does not own its CSS selector arena.
+            parser->memory = lxb_css_memory_destroy(parser->memory, true);
             lxb_css_parser_destroy(parser, true);
             parser = nullptr;
         }

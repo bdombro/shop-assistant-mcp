@@ -173,6 +173,20 @@ TEST_SUITE("db store") {
 // 2. Markdown & Cleaning Tests (markdown.test.ts)
 // ============================================================================
 TEST_SUITE("markdown & cleaner") {
+    TEST_CASE("CSS selector memory follows the shared document lifetime") {
+        std::optional<Node> retained;
+        {
+            auto doc = Document::parse("<main><p class='item'>first</p><p class='item'>second</p></main>");
+            retained = doc.querySelector(".item");
+            REQUIRE(retained.has_value());
+            CHECK(doc.querySelectorAll(".item").size() == 2);
+            CHECK_FALSE(doc.querySelector("[").has_value());
+            CHECK(doc.querySelectorAll("[").empty());
+            CHECK(doc.querySelectorAll(".item").size() == 2);
+        }
+        CHECK(retained->text() == "first");
+    }
+
     TEST_CASE("cleanHtml: title, JSON-LD, main content") {
         std::string html = readFixture("markdown/product-injected.html");
         auto page = cleanHtml(html, "https://www.shop.ie/p/123");

@@ -96,7 +96,7 @@ plugins/shop-assistant-mcp/
   - **Electronics & Appliances:** `currys`, `powercity`, `harveynorman` (UCP), `did` (UCP)
   - **General retail & Marketplaces:** `amazon` (`.ie` / `.co.uk` / `.de` / `.com`), `very`, `houseoffraser`, `ebay`, `adverts`, `donedeal`, `huntoffice`
   - **Shopping aggregators:** `bing` (Bing Shop), `duckduckgo`
-- **Fast `lexbor` DOM + JSON-LD extraction (`src/core/dom.hpp`):** Parses full retail HTML pages and runs complex CSS selectors and `@context: schema.org` JSON-LD extraction in <0.5 ms with RAII memory safety.
+- **Fast `lexbor` DOM + JSON-LD extraction (`src/core/dom.hpp`):** Parses full retail HTML pages and runs complex CSS selectors and `@context: schema.org` JSON-LD extraction in <0.5 ms with shared RAII ownership of the HTML tree and CSS selector arena.
 - **Prompt-injection-hardened Markdown view (`src/core/markdown.hpp`):** Strips scripts, styles, cookie banners, hidden DOM subtrees, and invisible/bidi Unicode characters before converting arbitrary product pages into compact Markdown sections (`pageView`, `splitSections`).
 - **Guarded CDP Browser Tabs (`src/core/cdp.hpp` & `src/core/policy.hpp`):**
   - Connects to Brave (`--remote-debugging-port=9222`) over WebSockets and only touches tabs opened by `shop-assistant` (never inspecting your personal tabs).
