@@ -4,6 +4,14 @@ Written for: AI coding agents working in the `shop-assistant-mcp` C++26 plugin r
 
 `shop-assistant-mcp` is a C++26 MCP plugin and CLI built on `slimr-cpp` and vcpkg-managed Lexbor that lets agents search, compare offers, read product pages, and interact with guarded Brave CDP browser tabs across 22 onboarded retail sites without ever being able to purchase or access checkout/account pages.
 
+
+## Documentation Upkeep
+
+When a change conflicts with `README.md`, update the affected README and its
+linked user/developer documentation in the same change. Keep examples,
+configuration, install/build commands and compatibility claims consistent
+with implemented behavior; do not claim unverified release or client support.
+
 ## Commands
 
 | Task | Command |
@@ -41,7 +49,7 @@ Written for: AI coding agents working in the `shop-assistant-mcp` C++26 plugin r
 
 CMake declares targets/dependencies; Ninja owns incremental builds. Just orchestrates automatic `deps` before configure/build/test/lint; CMake manifest auto-install is disabled. Set `VCPKG_ROOT` and `VCPKG_OVERLAY_PORTS` in the environment. Dependencies install under `build/deps/`; Debug sanitizer and Release trees live under `build/cmake/`. Use installed slimr targets, never source-checkout include overrides. SQLite with FTS5 and Lexbor use their static imported targets. `run` does not rebuild.
 
-Use a Clang/C++26 toolchain with libc++ FAST hardening, CMake, Ninja, vcpkg, just, and compatible clang-tidy. CTest runs fixture tests from the repository root with `SHOP_ASSISTANT_DIALOGS=off`. Inspector uses pinned npm tooling and an isolated server environment; never call browser/data tools in CI.
+Use a Clang/C++26 toolchain with libc++ FAST hardening, CMake, Ninja, vcpkg, just, and compatible clang-tidy. CTest runs fixture tests from the repository root with `SHOP_ASSISTANT_DIALOGS=off`. `test-mcp` checks July discovery over stdio and ephemeral HTTP with Node and an isolated server environment; never call browser/data tools in CI.
 
 ## C++ Memory Safety
 

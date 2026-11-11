@@ -13,6 +13,18 @@ Use this MCP to shop across 22 onboarded Irish, UK, and EU retail sites: compare
 
 The MCP uses your own Brave browser for interactive pages, but keeps shopping guarded: it works only with managed tabs, blocks checkout and account pages, and requires confirmation for write actions. It cannot place an order.
 
+> **Client compatibility:** MCP **2026-07-28 only**; legacy clients cannot connect.
+> The workspace has been exercised with OpenCode v2.2.6 using explicit July
+> configuration. Cursor's July support is deferred; Claude Code July runtime
+> acceptance is not yet verified. Shipping a plugin manifest is not proof of
+> client compatibility.
+
+## Try It
+
+After setup, ask your agent:
+
+> Compare 18V drills under EUR 150 from the supported Irish DIY shops.
+
 ## Features
 
 - Search and compare offers, product specs, reviews, delivery, and stock across onboarded stores.
@@ -20,150 +32,75 @@ The MCP uses your own Brave browser for interactive pages, but keeps shopping gu
 - Checkout, payment, login, and account pages are blocked; browser writes require confirmation.
 - Small footprint: a standalone MCP binary reuses your existing Brave browser rather than bundling one.
 
-## HTTP & Client Configuration (MCP `2026-07-28`)
+## Installation
 
-`shop-assistant-mcp` defaults to HTTP-first Streamable HTTP on `http://127.0.0.1:8085/mcp` (`shop-assistant-mcp http`) while preserving stdio (`shop-assistant-mcp mcp`) and direct JSON CLI invocation (`shop-assistant-mcp <tool> ['{...}']`).
+- **Prebuilt release:** the checked-in [Homebrew formula](Formula/shop-assistant-mcp.rb)
+  currently has a placeholder checksum. It is not a ready-to-install release.
+  Check [releases](https://github.com/bdombro/shop-assistant-mcp/releases) for published
+  binaries and a finalized formula before using a release installation command.
+- **Build from source:** the current path is [Development](#development).
+  Local slimr overlays are for development, not a runtime requirement.
+- **Already installed:** follow the setup and service steps below. Installing a
+  Cursor/Claude manifest only configures an endpoint; it does not install or
+  start the native service.
 
-> **Breaking change (MCP `2026-07-28`):** Legacy `initialize` / `notifications/initialized` session handshakes are replaced by stateless `server/discover` with `MCP-Protocol-Version: 2026-07-28` and `Mcp-Method` headers (legacy `initialize` returns `-32601`). Non-loopback bindings require `--allow-non-loopback`, and `--port 0` requires `--allow-ephemeral-port`.
 
-### Homebrew Service (`http://127.0.0.1:8085/mcp`)
+## Configure the Shopping Browser
+
+Install Brave with `brew install --cask brave-browser`. Interactive tools
+require a Brave instance exposing a **loopback-only** CDP endpoint, normally
+`http://127.0.0.1:9222`. Use a dedicated browser profile, not your everyday
+signed-in profile; do not expose remote debugging to your network.
+
+Set `SHOP_ASSISTANT_CDP_URL` if using another endpoint. Configure site
+preferences in the private file described under
+[Site Access Policy & Configuration](#site-access-policy--configuration).
+The server manages its own tabs and refuses checkout/account pages.
+macOS supplies the confirmation dialogs; unattended mode denies prompts.
+
+
+## Start and Manage the Service
+
+For an already-installed Homebrew formula:
 
 ```bash
-just install-local   # or: brew tap bdombro/shop-assistant-mcp && brew install bdombro/shop-assistant-mcp/shop-assistant-mcp
-just start           # starts LaunchAgent service on 127.0.0.1:8085 and verifies server/discover
-just status          # checks brew services info + HTTP server/discover
-just stop            # stops LaunchAgent service
+brew services start bdombro/shop-assistant-mcp/shop-assistant-mcp
+brew services info shop-assistant-mcp
+brew services restart bdombro/shop-assistant-mcp/shop-assistant-mcp
+brew services stop bdombro/shop-assistant-mcp/shop-assistant-mcp
 ```
 
-### Client Config Spellings
+The endpoint is `http://127.0.0.1:8085/mcp`; logs are under
+`/opt/homebrew/var/log/`. To run in the foreground instead, use
+`shop-assistant-mcp http` (or `./build/bin/shop-assistant-mcp http` from a source checkout).
+Do not run the foreground server and service on the same port.
+Keep the default loopback bind; this is not a shared remote-host deployment.
 
-**Claude Code / `.mcp.json` (HTTP — requires `"type": "http"`):**
 
-```json
-{
-  "mcpServers": {
-    "shop-assistant-mcp": {
-      "type": "http",
-      "url": "http://127.0.0.1:8085/mcp"
-    }
-  }
-}
-```
+## Connect Your Agent
 
-**Cursor (`.cursor/mcp.json` or `.cursor-plugin/plugin.json`):**
-
-```json
-{
-  "mcpServers": {
-    "shop-assistant-mcp": {
-      "url": "http://127.0.0.1:8085/mcp"
-    }
-  }
-}
-```
-
-**OpenCode (`opencode.jsonc` — uses `"type": "remote"`):**
+After starting the service, add this server to OpenCode v2.2.6's
+`opencode.jsonc` (merge it with any existing servers):
 
 ```json
 {
   "mcp": {
-    "shop-assistant-mcp": {
-      "type": "remote",
-      "url": "http://127.0.0.1:8085/mcp"
-    }
-  }
-}
-```
-
-**Standalone stdio (`.mcp.json` fallback):**
-
-```json
-{
-  "mcpServers": {
-    "shop-assistant-mcp": {
-      "command": "/absolute/path/to/shop-assistant-mcp/build/bin/shop-assistant-mcp",
-      "args": ["mcp"],
-      "env": {
-        "SHOP_ASSISTANT_CDP_URL": "http://127.0.0.1:9222"
+    "servers": {
+      "shop-assistant-mcp": {
+        "type": "remote",
+        "url": "http://127.0.0.1:8085/mcp",
+        "protocol": "2026-07-28"
       }
     }
   }
 }
 ```
 
-## App Architecture
+Use either an explicit server entry or a plugin manifest, not both.
+Alternative client schemas and stdio configuration are in the
+[developer reference](docs/development.md). The compatibility notice above
+applies to every transport.
 
-The standalone MCP and JSON CLI use `slimr-cpp` and the vcpkg-managed `lexbor` HTML parser and CSS selector engine.
-
-```text
-plugins/shop-assistant-mcp/
-├── vcpkg.json                # Package dependencies installed under build/deps/
-├── CMakeLists.txt            # App/test targets, imported dependencies, safety settings
-├── justfile                  # CMake/Ninja configure, test, build, lint, test-mcp
-├── README.md                 # User & operator documentation
-├── AGENTS.md                 # Maintainer & AI agent conventions
-├── agents/
-│   └── site-reader.md        # Subagent definition shipped with the plugin (standalone tool names)
-├── Formula/
-│   └── shop-assistant-mcp.rb # Homebrew formula + LaunchAgent service (with docs & sites pkgshare)
-├── scripts/
-│   ├── homebrew.mjs          # Local formula staging & brew services lifecycle
-│   └── test-mcp.mjs          # Stdio + ephemeral HTTP (`2026-07-28`) smoke check
-├── .cursor-plugin/
-│   └── plugin.json           # Cursor plugin manifest -> http://127.0.0.1:8085/mcp
-├── .claude-plugin/
-│   ├── plugin.json           # Claude plugin manifest -> http://127.0.0.1:8085/mcp
-│   └── marketplace.json      # Claude plugin marketplace descriptor
-├── docs/                     # Embedded MCP resources (`agent-guide.md`, `categories/`)
-├── sites/                    # 25 site policy Markdown files (`<site>.md` with YAML frontmatter)
-├── fixtures/                 # Synthetic HTML & JSON-LD cleaner fixtures
-├── src/
-│   ├── core/
-│   │   ├── dom.hpp           # RAII C++26 wrapper around `lexbor` (`Document`, `Node`, `querySelectorAll`, `findLd`)
-│   │   ├── markdown.hpp      # HTML sanitizer & Markdown renderer (`cleanHtml`, `pageView`, `splitSections`)
-│   │   ├── policy.hpp        # URL/mutation guard policy (`parseSiteDoc` via `yaml.hpp`, `decide`)
-│   │   ├── db.hpp            # SQLite `Store` (`shop.db`: page cache, guard event log, site health checks)
-│   │   ├── cdp.hpp           # Chrome DevTools Protocol client over `ws.hpp` & `curl.hpp`
-│   │   ├── adapter.hpp       # `Offer`, `ProductPage`, `Review`, `SiteAdapter`, price/stock parsers, `AdapterRegistry`
-│   │   └── pages.hpp         # Page settlement & anti-bot challenge detection (`isChallenge`)
-│   ├── sites/
-│   │   ├── all_sites.hpp     # Registers all 22 site adapters into `AdapterRegistry`
-│   │   └── <site>.hpp        # 22 site-specific HTML/JSON-LD parsers (`screwfix.hpp`, `amazon.hpp`, …)
-│   ├── app.hpp               # `shop::make_shop_assistant_app()` registering all 19 tools, resources & optional reporting
-│   └── main.cpp              # Standalone CLI, stdio MCP, and Streamable HTTP (`127.0.0.1:8085`) entrypoint
-├── tests/
-│   ├── test_core.hpp         # Core DOM, Markdown, policy, SQLite, HTTP, CLI, and thread-safety test cases
-│   ├── test_sites.hpp        # Site adapter fixture test suites
-│   └── test_main.cpp         # Combined test runner
-└── build/bin/
-    └── shop-assistant-mcp    # Standalone native Release binary
-```
-
-### Libraries Used
-
-- **`lexbor`:** vcpkg-managed static C HTML5 parser and CSS selector engine wrapped in `src/core/dom.hpp`.
-- **`<mcp.hpp>`, `<mcp_http.hpp>` & `<reflect.hpp>`:** Typed MCP tool definitions, compile-time JSON Schema generation, native MCP image blocks (`screenshot`), HTTP (`2026-07-28`), and narrow JSON CLI.
-- **`<ws.hpp>` & `<curl.hpp>` (`-lcurl`):** CDP WebSocket connection and HTTP target discovery against Brave (`127.0.0.1:9222`) + Shopify UCP catalog fetches.
-- **`<sqlite.hpp>` (`-lsqlite3`):** Page cache, site health tracking, and guard audit logging in `~/.local/state/shop-assistant/shop.db`.
-- **`<yaml.hpp>` (`rapidyaml`):** Parsing `sites/<site>.md` YAML policy frontmatter (`parse_frontmatter`).
-- **`<json.hpp>` (`glaze`):** JSON-LD (`@type: Product`) and CDP message parsing.
-- **`<bugsink.hpp>` (`-lcurl`):** Optional error reporting, enabled only by `BUGSINK_DSN`.
-- **`<test.hpp>` (`doctest`):** Offline HTML/JSON-LD fixture test suite compiled with `-fsanitize=address,undefined`.
-
-## Key Capabilities & Architecture
-
-- **22 Onboarded Site Adapters (`src/sites/`):**
-  - **Home improvement & DIY:** `screwfix`, `diy` (B&Q Ireland), `woodies`, `chadwicks`, `brooks`, `tjomahony`, `mcmahons`, `mcquillantools`, `tooldepotireland`, `mydiy`, `toolsidee`, `strahan` (UCP)
-  - **Electronics & Appliances:** `currys`, `powercity`, `harveynorman` (UCP), `did` (UCP)
-  - **General retail & Marketplaces:** `amazon` (`.ie` / `.co.uk` / `.de` / `.com`), `very`, `houseoffraser`, `ebay`, `adverts`, `donedeal`, `huntoffice`
-  - **Shopping aggregators:** `bing` (Bing Shop), `duckduckgo`
-- **Fast `lexbor` DOM + JSON-LD extraction (`src/core/dom.hpp`):** Parses full retail HTML pages and runs complex CSS selectors and `@context: schema.org` JSON-LD extraction in <0.5 ms with shared RAII ownership of the HTML tree and CSS selector arena.
-- **Prompt-injection-hardened Markdown view (`src/core/markdown.hpp`):** Strips scripts, styles, cookie banners, hidden DOM subtrees, and invisible/bidi Unicode characters before converting arbitrary product pages into compact Markdown sections (`pageView`, `splitSections`).
-- **Guarded CDP Browser Tabs (`src/core/cdp.hpp` & `src/core/policy.hpp`):**
-  - Connects to Brave (`--remote-debugging-port=9222`) over WebSockets and only touches tabs opened by `shop-assistant` (never inspecting your personal tabs).
-  - Intercepts requests via CDP `Fetch`: checkout, payment, login, and account URLs (`PageKind::Blocked`) are unconditionally blocked.
-  - Every mutating browser action (`click`, `fill`, `fill-form`, `press-key` triggering a write) requires explicit confirmation in a native macOS dialog (`write: ask`), and background page beacons/prefetches are blocked silently without prompting.
-- **SQLite Page Cache & Guard Log (`src/core/db.hpp`):** Caches fetched pages and records site health checks and guard decisions in `~/.local/state/shop-assistant/shop.db`.
 
 ## Tools & CLI Commands
 
@@ -237,6 +174,35 @@ Each site's Markdown policy file in `sites/<site>.md` defines its allowed domain
 | `SHOP_ASSISTANT_DIALOGS` | `on` | Set to `off` in unattended/test runs to auto-deny `ask` prompts without macOS dialogs |
 | `BUGSINK_DSN` | Unset (disabled) | Optional error reporting DSN (`""` disables) |
 
+## Troubleshooting
+
+- **Client cannot connect:** confirm it supports July MCP, the service is
+  running, and the client URL matches the configured port. OpenCode needs
+  `"protocol": "2026-07-28"`; old `initialize` clients will fail.
+- **Port occupied:** inspect the listener and stop only the service/process
+  you own, or deliberately choose another port and update the client URL.
+- **Works in a terminal, not as a service:** launchd does not inherit
+  `~/.zshrc`. Configure the service environment separately or use the
+  plugin's supported private configuration file; inspect
+  `/opt/homebrew/var/log/` for errors.
+- **Browser tools unavailable:** verify Brave's loopback CDP endpoint and dedicated profile. Handle CAPTCHA/access-denied pages manually; do not bypass them.
+- **Source build cannot find vcpkg or slimr ports:** load the development
+  environment, bootstrap vcpkg, and register both slimr links and the pinned
+  libhv overlay. Never repair this by editing installed headers.
+- **Compiler/hardening check fails:** upgrade the Xcode toolchain; set
+  `CXX` before first configure. CMake caches the compiler, so an intentional
+  compiler change needs a fresh configuration tree.
+
+
+## Development
+
+This section is for building or changing the server, not configuring an
+installed binary. [Architecture, transport reference and test details](docs/development.md)
+are separate from the user setup flow.
+
+<details>
+<summary>macOS source-build setup (vcpkg and local slimr overlays)</summary>
+
 ## macOS Build Prerequisites (vcpkg setup)
 
 Install [Homebrew](https://brew.sh) and current Xcode Command Line Tools
@@ -306,30 +272,14 @@ as described above. macOS supplies `osascript` for confirmation dialogs.
 Build/test commands do not launch a browser, open shopping tabs, or start
 services.
 
-## Building & Testing
+</details>
 
-Fixtures are original, minimal synthetic markup, not redistributed retailer page captures.
-The current tests exercise seven search parsers and registration of all 22 adapters;
-they do not establish full live-site compatibility. Unused captured HTML/JSON, reviews,
-and matching datasets are intentionally not distributed. The ISC license covers the
-original code and synthetic fixtures, not third-party site content or dependencies.
-
-Build with Clang/C++26 and libc++ FAST hardening, CMake 3.31+, Ninja, [just](https://just.systems), [vcpkg](https://vcpkg.io), and a compatible clang-tidy. Set `VCPKG_ROOT` to a bootstrapped checkout and put `vcpkg` on `PATH`; configure the local overlay explicitly:
+After the source build succeeds, stage and install the local Homebrew formula:
 
 ```bash
-export VCPKG_OVERLAY_PORTS="$VCPKG_ROOT/local-ports"
+just install-local
 ```
 
-`just configure`, `test`, `build`, and `lint` automatically run `deps`, installing manifest dependencies under `build/deps/`. CMake uses installed `slimr::mcp`, `slimr::sqlite`, `slimr::yaml`, `slimr::ws`, and `lexbor::lexbor_static` targets, preserving static SQLite/FTS5 and Lexbor linkage; manifest auto-install is disabled. Local overlay ports must already be registered; no source-checkout include overrides or global executable installs are used. Registry publication is separate.
-
-Debug sanitizers and Release IPO builds have separate `build/cmake/Debug/` and `build/cmake/Release/` graphs. Both enable libc++ hardening and zero automatic-variable initialization; Debug adds ASan and fatal UBSan. Set `CXX` before the first configure to override the default Apple compiler on macOS or `clang++` on Linux; subsequent configures preserve CMake's cached compiler even when clang-tidy is added to `PATH`. CTest runs offline fixtures from the repository root with `SHOP_ASSISTANT_DIALOGS=off`, a finite timeout, and isolated repo-local HOME/XDG/temporary directories. Release builds run those tests too.
-
-```bash
-just test     # Run core, site-parser, CLI, HTTP, and thread-safety tests with ASan + UBSan
-just build    # Build/test Release binary at build/bin/shop-assistant-mcp
-just lint     # Analyze app and test translation units using compile_commands.json (supports CLANG_TIDY)
-just test-mcp # Verify stdio (mcp) and ephemeral HTTP (http --port 0 --allow-ephemeral-port) against MCP 2026-07-28
-just run --help # Run the existing Release binary without rebuilding
-```
-
-`just test` and `just test-mcp` run the server with an isolated HOME/XDG environment, no external CLI PATH or credentials, `SHOP_ASSISTANT_DIALOGS=off`, and Bugsink disabled; they never open browser tabs or invoke external retail sites. Linux/macOS PR CI uses the same commands and requires the tested full `VCPKG_REF` commit variable; slimr packages use the pinned public registry without a dependency token. Linux execution and remote merge-gate enforcement are not claimed by local macOS verification.
+Installing a formula and starting its service are separate actions.
+For a source-only foreground run, use
+`./build/bin/shop-assistant-mcp http`.
