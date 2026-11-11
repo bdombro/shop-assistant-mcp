@@ -7,6 +7,7 @@
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -79,10 +80,28 @@ CREATE TABLE IF NOT EXISTS site_checks (
 CREATE INDEX IF NOT EXISTS site_checks_site ON site_checks (site, at);
 )";
 
+/// Thread-safe SQLite backing store for cached pages, guard events, and site checks.
 class Store {
 public:
     Store(std::unique_ptr<slimr::SqliteDb> db, std::function<int64_t()> now_fn = nullptr)
         : db_(std::move(db)), now_(now_fn ? std::move(now_fn) : defaultNow) {}
+
+    Store(const Store&) = delete;
+    Store& operator=(const Store&) = delete;
+
+    Store(Store&& other) noexcept {
+        std::lock_guard<std::recursive_mutex> lock(other.mu_);
+        db_ = std::move(other.db_);
+        now_ = std::move(other.now_);
+    }
+
+    Store& operator=(Store&& other) noexcept {
+        if (this == &other) return *this;
+        std::scoped_lock lock(mu_, other.mu_);
+        db_ = std::move(other.db_);
+        now_ = std::move(other.now_);
+        return *this;
+    }
 
     static int64_t defaultNow() {
         return std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -98,7 +117,15 @@ public:
 
     slimr::SqliteDb& sqlite() { return *db_; }
 
+    /// Executes `fn` inside a serialized SQLite transaction under the Store mutex.
+    template <typename Fn>
+    decltype(auto) transaction(Fn&& fn) {
+        std::lock_guard<std::recursive_mutex> lock(mu_);
+        return db_->transaction([&]() -> decltype(auto) { return fn(*db_); });
+    }
+
     std::optional<CachedPage> getPage(std::string_view key) {
+        std::lock_guard<std::recursive_mutex> lock(mu_);
         auto row = db_->get("SELECT fetched_at, expires_at, body FROM pages WHERE key = ?", {std::string(key)});
         if (!row || row->is_null()) return std::nullopt;
         int64_t expiresAt = (*row)["expires_at"].get<int64_t>();
@@ -116,6 +143,7 @@ public:
     }
 
     void putPage(std::string_view key, PageKind kind, int64_t ttlS, const CleanPage& page) {
+        std::lock_guard<std::recursive_mutex> lock(mu_);
         int64_t fetchedAt = now_();
         int64_t expiresAt = fetchedAt + ttlS * 1000;
         std::string body = slimr::write_json(page);
@@ -125,6 +153,7 @@ public:
     }
 
     void logGuard(const GuardEvent& event) {
+        std::lock_guard<std::recursive_mutex> lock(mu_);
         slimr::SqlValue siteVal;
         if (event.site.has_value()) {
             siteVal = *event.site;
@@ -138,6 +167,7 @@ public:
 
     std::vector<GuardEvent> guardEvents(const std::vector<int64_t>& pageIds, int64_t sinceMs) {
         if (pageIds.empty()) return {};
+        std::lock_guard<std::recursive_mutex> lock(mu_);
         std::string sql = "SELECT at, page_id, site, method, url, action, outcome, reason FROM guard_log WHERE page_id IN (";
         std::vector<slimr::SqlValue> params;
         for (size_t i = 0; i < pageIds.size(); ++i) {
@@ -168,12 +198,14 @@ public:
     }
 
     void recordCheck(std::string_view site, bool ok, std::string_view detail) {
+        std::lock_guard<std::recursive_mutex> lock(mu_);
         db_->run(
             "INSERT INTO site_checks (site, at, ok, detail) VALUES (?, ?, ?, ?)",
             {std::string(site), now_(), ok ? int64_t(1) : int64_t(0), std::string(detail)});
     }
 
     SiteHealth siteHealth(std::string_view site) {
+        std::lock_guard<std::recursive_mutex> lock(mu_);
         auto times = db_->get(
             "SELECT MAX(at) AS checked, MAX(CASE WHEN ok = 1 THEN at END) AS worked FROM site_checks WHERE site = ?",
             {std::string(site)});
@@ -197,12 +229,14 @@ public:
     }
 
     void close() {
+        std::lock_guard<std::recursive_mutex> lock(mu_);
         if (db_) {
             db_->close();
         }
     }
 
 private:
+    mutable std::recursive_mutex mu_;
     std::unique_ptr<slimr::SqliteDb> db_;
     std::function<int64_t()> now_;
 };

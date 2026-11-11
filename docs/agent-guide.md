@@ -82,7 +82,7 @@ Fallback order: `search`/`offer` on adapter sites (UCP stores included), `page`,
 Reading many sites is slow and floods your context. Split it.
 
 - You build the exact URLs from each site doc
-- Spawn one `site-reader` subagent (`shop-assistant:site-reader` when installed as a plugin) per site, in parallel. Paste the site doc, the URLs and the row schema into its prompt. It can't see resources you haven't pasted
+- Spawn one `site-reader` subagent (`shop-assistant-mcp:site-reader` when installed as a plugin) per site, in parallel. Paste the site doc, the URLs and the row schema into its prompt. It can't see resources you haven't pasted
 - Later, one reader per finalist for its product page and critical reviews
 - Readers fetch and extract. They never recommend. You decide
 

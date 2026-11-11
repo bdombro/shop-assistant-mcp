@@ -10,13 +10,21 @@
 #include "core/adapter.hpp"
 #include "core/pages.hpp"
 #include "app.hpp"
+#include "mcp_http.hpp"
 
+#include <arpa/inet.h>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <netinet/in.h>
+#include <poll.h>
 #include <regex>
+#include <set>
 #include <sstream>
 #include <string>
+#include <sys/socket.h>
+#include <thread>
+#include <unistd.h>
 
 namespace shop::testing {
 
@@ -702,5 +710,193 @@ TEST_SUITE("adapter helpers") {
         CHECK(hint.find("google-analytics") == std::string::npos);
 
         store.close();
+    }
+}
+
+// ============================================================================
+// 5. HTTP Transport, CLI, Resources & Thread-Safety Tests
+// ============================================================================
+TEST_SUITE("http and concurrency") {
+    TEST_CASE("http transport, server/discover, tools/list, CLI, and instructions") {
+        struct LoopbackFd {
+            int fd{-1};
+            ~LoopbackFd() { if (fd >= 0) ::close(fd); }
+            LoopbackFd(const LoopbackFd&) = delete;
+            LoopbackFd& operator=(const LoopbackFd&) = delete;
+            LoopbackFd() = default;
+        };
+
+        auto postMcp = [](uint16_t port, std::string_view method, std::string_view body,
+                          std::string_view toolName = {}) -> std::pair<int, slimr::Json> {
+            LoopbackFd sock;
+            sock.fd = ::socket(AF_INET, SOCK_STREAM, 0);
+            REQUIRE(sock.fd >= 0);
+
+            sockaddr_in addr{};
+            addr.sin_family = AF_INET;
+            addr.sin_port = htons(port);
+            REQUIRE(::inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr) == 1);
+            REQUIRE(::connect(sock.fd, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) == 0);
+
+            std::string req = "POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:" + std::to_string(port) + "\r\n"
+                              "Content-Type: application/json\r\n"
+                              "Accept: application/json, text/event-stream\r\n"
+                              "MCP-Protocol-Version: 2026-07-28\r\n"
+                              "Mcp-Method: " + std::string(method) + "\r\n";
+            if (!toolName.empty()) {
+                req += "Mcp-Name: " + std::string(toolName) + "\r\n";
+            }
+            req += "Content-Length: " + std::to_string(body.size()) + "\r\nConnection: close\r\n\r\n";
+            req += body;
+
+            size_t sent = 0;
+            while (sent < req.size()) {
+                ssize_t n = ::send(sock.fd, req.data() + sent, req.size() - sent, 0);
+                REQUIRE(n > 0);
+                sent += static_cast<size_t>(n);
+            }
+
+            std::string raw;
+            char buf[4096];
+            for (;;) {
+                pollfd pfd{sock.fd, POLLIN, 0};
+                REQUIRE(::poll(&pfd, 1, 5000) > 0);
+                ssize_t n = ::recv(sock.fd, buf, sizeof(buf), 0);
+                if (n <= 0) break;
+                raw.append(buf, static_cast<size_t>(n));
+            }
+
+            auto hdrEnd = raw.find("\r\n\r\n");
+            REQUIRE(hdrEnd != std::string::npos);
+            auto statusStart = raw.find(' ');
+            REQUIRE(statusStart != std::string::npos);
+            int status = std::stoi(raw.substr(statusStart + 1, 3));
+            std::string payload = raw.substr(hdrEnd + 4);
+            if (payload.empty()) return {status, slimr::Json{}};
+            auto parsed = slimr::parse_json(payload);
+            REQUIRE(parsed.has_value());
+            return {status, std::move(*parsed)};
+        };
+
+        auto app = shop::make_shop_assistant_app();
+        CHECK(app.instructions.find("shop-assistant://browser") != std::string::npos);
+        CHECK(app.instructions.find("shop-assistant://guide") == std::string::npos);
+        slimr::enable_http(app, slimr::HttpServerOptions{.host = "127.0.0.1", .port = 8085});
+
+        // CLI invocation
+        {
+            char arg0[] = "shop-assistant-mcp";
+            char arg1[] = "status";
+            char* argv[] = {arg0, arg1, nullptr};
+            CHECK(app.run(2, argv) == 0);
+        }
+
+        // Refusals for non-loopback and unflagged ephemeral port
+        {
+            char arg0[] = "shop-assistant-mcp";
+            char arg1[] = "http";
+            char arg2[] = "--host";
+            char arg3[] = "0.0.0.0";
+            char* argv[] = {arg0, arg1, arg2, arg3, nullptr};
+            CHECK(app.run(4, argv) == 1);
+        }
+        {
+            char arg0[] = "shop-assistant-mcp";
+            char arg1[] = "http";
+            char arg2[] = "--port";
+            char arg3[] = "0";
+            char* argv[] = {arg0, arg1, arg2, arg3, nullptr};
+            CHECK(app.run(4, argv) == 1);
+        }
+
+        // Ephemeral HTTP server roundtrip
+        slimr::McpHttpServer server(app, slimr::HttpServerOptions{
+            .host = "127.0.0.1",
+            .port = 0,
+            .allowEphemeralPort = true,
+        });
+        std::string err;
+        REQUIRE(server.start(&err));
+        const uint16_t port = server.boundPort();
+        CHECK(port > 0);
+
+        constexpr std::string_view kMeta =
+            R"("_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}})";
+
+        auto [discStatus, disc] = postMcp(
+            port, "server/discover",
+            std::string(R"({"jsonrpc":"2.0","id":1,"method":"server/discover","params":{)") +
+                std::string(kMeta) + "}}");
+        CHECK(discStatus == 200);
+        CHECK(disc["result"]["supportedVersions"][0].get<std::string>() == "2026-07-28");
+        CHECK(disc["result"]["_meta"]["io.modelcontextprotocol/serverInfo"]["name"].get<std::string>() == "shop-assistant-mcp");
+
+        auto [listStatus, listed] = postMcp(
+            port, "tools/list",
+            std::string(R"({"jsonrpc":"2.0","id":2,"method":"tools/list","params":{)") +
+                std::string(kMeta) + "}}");
+        CHECK(listStatus == 200);
+        std::set<std::string> names;
+        for (const auto& t : listed["result"]["tools"].get<slimr::Json::array_t>()) {
+            names.insert(t["name"].get<std::string>());
+        }
+        CHECK(names == std::set<std::string>{
+            "search", "offer", "reviews", "page", "themes",
+            "open", "navigate", "click", "fill", "fill_form",
+            "press_key", "wait_for", "evaluate", "snapshot",
+            "screen", "screenshot", "tab_open", "tab_close", "status",
+            "mcp_resource_read"});
+
+        auto [callStatus, called] = postMcp(
+            port, "tools/call",
+            std::string(R"({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"status","arguments":{},)") +
+                std::string(kMeta) + "}}",
+            "status");
+        CHECK(callStatus == 200);
+        CHECK((!called["result"].contains("isError") || !called["result"]["isError"].get<bool>()));
+
+        auto [initStatus, initResp] = postMcp(
+            port, "initialize",
+            R"({"jsonrpc":"2.0","id":4,"method":"initialize","params":{}})");
+        CHECK(initStatus == 404);
+        CHECK(initResp["error"]["code"].get<int64_t>() == -32601);
+
+        server.stop();
+    }
+
+    TEST_CASE("Store and CdpClient are thread-safe under concurrent calls") {
+        auto store = Store::open(":memory:", []() -> int64_t { return 1000000; });
+        std::vector<std::thread> workers;
+        for (int t = 0; t < 4; ++t) {
+            workers.emplace_back([&, t]() {
+                for (int i = 0; i < 20; ++i) {
+                    CleanPage page;
+                    page.title = "Item";
+                    page.url = "https://example.test/p/" + std::to_string(i);
+                    page.sections = {Section{"s1", "(top)", "content", 1}};
+                    store.putPage("k-" + std::to_string(t) + "-" + std::to_string(i), PageKind::product, 60, page);
+                    auto got = store.getPage("k-" + std::to_string(t) + "-" + std::to_string(i));
+                    CHECK(got.has_value());
+                    store.recordCheck("site-" + std::to_string(t), (i % 2) == 0, "ok");
+                    (void)store.siteHealth("site-" + std::to_string(t));
+                }
+            });
+        }
+        for (auto& w : workers) w.join();
+        store.close();
+
+        CdpClient cdp;
+        std::vector<std::thread> cdpWorkers;
+        for (int t = 0; t < 4; ++t) {
+            cdpWorkers.emplace_back([&]() {
+                for (int i = 0; i < 25; ++i) {
+                    auto id = cdp.on([](const CdpEvent&) {});
+                    (void)cdp.isOpen();
+                    cdp.off(id);
+                }
+            });
+        }
+        for (auto& w : cdpWorkers) w.join();
+        cdp.close();
     }
 }

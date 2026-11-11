@@ -20,11 +20,62 @@ The MCP uses your own Brave browser for interactive pages, but keeps shopping gu
 - Checkout, payment, login, and account pages are blocked; browser writes require confirmation.
 - Small footprint: a standalone MCP binary reuses your existing Brave browser rather than bundling one.
 
-## `.mcp.json` Configuration
+## HTTP & Client Configuration (MCP `2026-07-28`)
 
-In the `assistant2` workspace, `shop-assistant-mcp` is mounted into the unified `build/bin/assistant-mcp` gateway under the `shop_` prefix (`shop_search`, `shop_offer`, `shop_reviews`, `shop_page`, `shop_themes`, `shop_open`, `shop_navigate`, `shop_click`, `shop_fill`, `shop_fill_form`, `shop_press_key`, `shop_wait_for`, `shop_evaluate`, `shop_snapshot`, `shop_screen`, `shop_screenshot`, `shop_tab_open`, `shop_tab_close`, `shop_status`).
+`shop-assistant-mcp` defaults to HTTP-first Streamable HTTP on `http://127.0.0.1:8085/mcp` (`shop-assistant-mcp http`) while preserving stdio (`shop-assistant-mcp mcp`) and direct JSON CLI invocation (`shop-assistant-mcp <tool> ['{...}']`).
 
-To run `shop-assistant-mcp` as a standalone MCP server in `.mcp.json`:
+> **Breaking change (MCP `2026-07-28`):** Legacy `initialize` / `notifications/initialized` session handshakes are replaced by stateless `server/discover` with `MCP-Protocol-Version: 2026-07-28` and `Mcp-Method` headers (legacy `initialize` returns `-32601`). Non-loopback bindings require `--allow-non-loopback`, and `--port 0` requires `--allow-ephemeral-port`.
+
+### Homebrew Service (`http://127.0.0.1:8085/mcp`)
+
+```bash
+just install-local   # or: brew tap bdombro/shop-assistant-mcp && brew install bdombro/shop-assistant-mcp/shop-assistant-mcp
+just start           # starts LaunchAgent service on 127.0.0.1:8085 and verifies server/discover
+just status          # checks brew services info + HTTP server/discover
+just stop            # stops LaunchAgent service
+```
+
+### Client Config Spellings
+
+**Claude Code / `.mcp.json` (HTTP — requires `"type": "http"`):**
+
+```json
+{
+  "mcpServers": {
+    "shop-assistant-mcp": {
+      "type": "http",
+      "url": "http://127.0.0.1:8085/mcp"
+    }
+  }
+}
+```
+
+**Cursor (`.cursor/mcp.json` or `.cursor-plugin/plugin.json`):**
+
+```json
+{
+  "mcpServers": {
+    "shop-assistant-mcp": {
+      "url": "http://127.0.0.1:8085/mcp"
+    }
+  }
+}
+```
+
+**OpenCode (`opencode.jsonc` — uses `"type": "remote"`):**
+
+```json
+{
+  "mcp": {
+    "shop-assistant-mcp": {
+      "type": "remote",
+      "url": "http://127.0.0.1:8085/mcp"
+    }
+  }
+}
+```
+
+**Standalone stdio (`.mcp.json` fallback):**
 
 ```json
 {
@@ -52,7 +103,17 @@ plugins/shop-assistant-mcp/
 ├── README.md                 # User & operator documentation
 ├── AGENTS.md                 # Maintainer & AI agent conventions
 ├── agents/
-│   └── site-reader.md        # Subagent definition copied to `.claude/agents/` by `just mcp-configs`
+│   └── site-reader.md        # Subagent definition shipped with the plugin (standalone tool names)
+├── Formula/
+│   └── shop-assistant-mcp.rb # Homebrew formula + LaunchAgent service (with docs & sites pkgshare)
+├── scripts/
+│   ├── homebrew.mjs          # Local formula staging & brew services lifecycle
+│   └── test-mcp.mjs          # Stdio + ephemeral HTTP (`2026-07-28`) smoke check
+├── .cursor-plugin/
+│   └── plugin.json           # Cursor plugin manifest -> http://127.0.0.1:8085/mcp
+├── .claude-plugin/
+│   ├── plugin.json           # Claude plugin manifest -> http://127.0.0.1:8085/mcp
+│   └── marketplace.json      # Claude plugin marketplace descriptor
 ├── docs/                     # Embedded MCP resources (`agent-guide.md`, `categories/`)
 ├── sites/                    # 25 site policy Markdown files (`<site>.md` with YAML frontmatter)
 ├── fixtures/                 # Synthetic HTML & JSON-LD cleaner fixtures
@@ -69,9 +130,9 @@ plugins/shop-assistant-mcp/
 │   │   ├── all_sites.hpp     # Registers all 22 site adapters into `AdapterRegistry`
 │   │   └── <site>.hpp        # 22 site-specific HTML/JSON-LD parsers (`screwfix.hpp`, `amazon.hpp`, …)
 │   ├── app.hpp               # `shop::make_shop_assistant_app()` registering all 19 tools, resources & optional reporting
-│   └── main.cpp              # Standalone CLI & stdio MCP entrypoint
+│   └── main.cpp              # Standalone CLI, stdio MCP, and Streamable HTTP (`127.0.0.1:8085`) entrypoint
 ├── tests/
-│   ├── test_core.hpp         # 27 core DOM, Markdown, policy, and SQLite test cases
+│   ├── test_core.hpp         # Core DOM, Markdown, policy, SQLite, HTTP, CLI, and thread-safety test cases
 │   ├── test_sites.hpp        # Site adapter fixture test suites
 │   └── test_main.cpp         # Combined test runner
 └── build/bin/
@@ -81,7 +142,7 @@ plugins/shop-assistant-mcp/
 ### Libraries Used
 
 - **`lexbor`:** vcpkg-managed static C HTML5 parser and CSS selector engine wrapped in `src/core/dom.hpp`.
-- **`<mcp.hpp>` & `<reflect.hpp>`:** Typed MCP tool definitions, compile-time JSON Schema generation, native MCP image blocks (`shop_screenshot`), and narrow JSON CLI.
+- **`<mcp.hpp>`, `<mcp_http.hpp>` & `<reflect.hpp>`:** Typed MCP tool definitions, compile-time JSON Schema generation, native MCP image blocks (`screenshot`), HTTP (`2026-07-28`), and narrow JSON CLI.
 - **`<ws.hpp>` & `<curl.hpp>` (`-lcurl`):** CDP WebSocket connection and HTTP target discovery against Brave (`127.0.0.1:9222`) + Shopify UCP catalog fetches.
 - **`<sqlite.hpp>` (`-lsqlite3`):** Page cache, site health tracking, and guard audit logging in `~/.local/state/shop-assistant/shop.db`.
 - **`<yaml.hpp>` (`rapidyaml`):** Parsing `sites/<site>.md` YAML policy frontmatter (`parse_frontmatter`).
@@ -106,29 +167,29 @@ plugins/shop-assistant-mcp/
 
 ## Tools & CLI Commands
 
-Every tool is exposed over MCP (`shop-assistant-mcp mcp` or via `assistant-mcp` under the `shop_` prefix) and on the CLI (`shop-assistant-mcp <tool> ['{"arg":"val"}']`). Existing `shop-assistant://` resources and data paths are unchanged.
+Every tool is exposed over MCP (`shop-assistant-mcp http` on `http://127.0.0.1:8085/mcp`, `shop-assistant-mcp mcp` over stdio) and on the CLI (`shop-assistant-mcp <tool> ['{"arg":"val"}']`). Existing `shop-assistant://` resources and data paths are unchanged.
 
-| Tool | Gateway Name | Mutating | Description |
-| --- | --- | --- | --- |
-| `search` | `shop_search` | No | Search one or more onboarded sites (or a category theme like `"diy"`, `"electronics"`) concurrently, returning normalized offers (`title`, `price`, `currency`, `url`, `stock`, `delivery`, `rating`, `specs`) filtered by `minPrice`, `maxPrice`, `inStockOnly`, and token budget. |
-| `offer` | `shop_offer` | No | Fetch structured product details (`ProductPage`: price, stock, specs table, description, images, delivery options) from a product URL using its site adapter or JSON-LD. |
-| `reviews` | `shop_reviews` | No | Extract customer review summaries and individual reviews (`rating`, `title`, `body`, `date`, `verified`) for a product URL. |
-| `page` | `shop_page` | No | Read any allowed URL on an onboarded site as clean, sectioned Markdown (`section`, `maxTokens`), served from `shop.db` cache when fresh. |
-| `themes` | `shop_themes` | No | List onboarded sites grouped by category theme, along with their current `read`/`write` policy and health status. |
-| `open` | `shop_open` | Yes | Open a new guarded browser tab on an onboarded site URL and return its `tabId` and accessibility/Markdown snapshot. |
-| `navigate` | `shop_navigate` | Yes | Navigate an existing guarded `tabId` to a new allowed URL. |
-| `snapshot` | `shop_snapshot` | No | Capture the current accessibility tree / interactive element refs of a guarded `tabId`. |
-| `screen` | `shop_screen` | No | Read the current rendered text/Markdown content of a guarded `tabId`. |
-| `screenshot` | `shop_screenshot` | No | Capture a PNG screenshot of a guarded `tabId` as a native MCP image block. |
-| `click` | `shop_click` | Yes | Click an element selector or accessibility ref in a guarded `tabId` (subject to write-guard confirmation if it triggers a mutation). |
-| `fill` | `shop_fill` | Yes | Fill an input field in a guarded `tabId`. |
-| `fill-form` / `fill_form` | `shop_fill_form` | Yes | Fill multiple form fields in a guarded `tabId`. |
-| `press-key` / `press_key` | `shop_press_key` | Yes | Dispatch a key press (`Enter`, `Escape`, `Tab`, …) in a guarded `tabId`. |
-| `wait-for` / `wait_for` | `shop_wait_for` | No | Wait for text or a selector to appear in a guarded `tabId`. |
-| `evaluate` | `shop_evaluate` | Yes | Evaluate a read expression in a guarded `tabId`. |
-| `tab-open` / `tab_open` | `shop_tab_open` | Yes | Alias to open a managed tab. |
-| `tab-close` / `tab_close` | `shop_tab_close` | Yes | Close a managed `tabId`. |
-| `status` | `shop_status` | No | Returns plugin version, onboarded site count, CDP reachability, and SQLite store path. |
+| Tool | Mutating | Description |
+| --- | --- | --- |
+| `search` | No | Search one or more onboarded sites (or a category theme like `"diy"`, `"electronics"`) concurrently, returning normalized offers (`title`, `price`, `currency`, `url`, `stock`, `delivery`, `rating`, `specs`) filtered by `minPrice`, `maxPrice`, `inStockOnly`, and token budget. |
+| `offer` | No | Fetch structured product details (`ProductPage`: price, stock, specs table, description, images, delivery options) from a product URL using its site adapter or JSON-LD. |
+| `reviews` | No | Extract customer review summaries and individual reviews (`rating`, `title`, `body`, `date`, `verified`) for a product URL. |
+| `page` | No | Read any allowed URL on an onboarded site as clean, sectioned Markdown (`section`, `maxTokens`), served from `shop.db` cache when fresh. |
+| `themes` | No | List onboarded sites grouped by category theme, along with their current `read`/`write` policy and health status. |
+| `open` | Yes | Open a new guarded browser tab on an onboarded site URL and return its `tabId` and accessibility/Markdown snapshot. |
+| `navigate` | Yes | Navigate an existing guarded `tabId` to a new allowed URL. |
+| `snapshot` | No | Capture the current accessibility tree / interactive element refs of a guarded `tabId`. |
+| `screen` | No | Read the current rendered text/Markdown content of a guarded `tabId`. |
+| `screenshot` | No | Capture a PNG screenshot of a guarded `tabId` as a native MCP image block. |
+| `click` | Yes | Click an element selector or accessibility ref in a guarded `tabId` (subject to write-guard confirmation if it triggers a mutation). |
+| `fill` | Yes | Fill an input field in a guarded `tabId`. |
+| `fill_form` | Yes | Fill multiple form fields in a guarded `tabId`. |
+| `press_key` | Yes | Dispatch a key press (`Enter`, `Escape`, `Tab`, …) in a guarded `tabId`. |
+| `wait_for` | No | Wait for text or a selector to appear in a guarded `tabId`. |
+| `evaluate` | Yes | Evaluate a read expression in a guarded `tabId`. |
+| `tab_open` | Yes | Alias to open a managed tab. |
+| `tab_close` | Yes | Close a managed `tabId`. |
+| `status` | No | Returns plugin version, onboarded site count, CDP reachability, and SQLite store path. |
 
 ### Embedded MCP Resources
 
@@ -176,6 +237,75 @@ Each site's Markdown policy file in `sites/<site>.md` defines its allowed domain
 | `SHOP_ASSISTANT_DIALOGS` | `on` | Set to `off` in unattended/test runs to auto-deny `ask` prompts without macOS dialogs |
 | `BUGSINK_DSN` | Unset (disabled) | Optional error reporting DSN (`""` disables) |
 
+## macOS Build Prerequisites (vcpkg setup)
+
+Install [Homebrew](https://brew.sh) and current Xcode Command Line Tools
+(`xcode-select --install`; finish installation before continuing), or full Xcode.
+Apple Clang 21 is the verified C++26/libc++ toolchain; older installations need
+upgrading. These instructions assume Apple Silicon Homebrew at `/opt/homebrew`.
+
+Add this environment snippet to `~/.zshrc`, then open a new terminal (or run
+`source ~/.zshrc`). Use `~/.zshrc`, not `~/.zshenv`, to avoid changing
+non-interactive zsh scripts:
+
+`local-ports` is the dedicated vcpkg overlay directory for local development
+linking: `just publish --local --all` registers symlinks to your slimr-cpp checkout,
+overriding published packages without making a registry release. See the
+[publishing guide on slimr-cpp](https://github.com/bdombro/slimr-cpp/blob/main/docs/publishing.md#local-environment).
+
+```bash
+export VCPKG_ROOT="$HOME/.local/share/vcpkg"
+export VCPKG_OVERLAY_PORTS="$VCPKG_ROOT/local-ports"
+# Use your existing workspace checkout instead when available.
+export SLIMR_CPP="${SLIMR_CPP:-$HOME/dev/bdombro/slimr-cpp}"
+export CXX="/usr/bin/clang++"
+export CLANG_TIDY="/opt/homebrew/opt/llvm/bin/clang-tidy"
+export PATH="$VCPKG_ROOT:/opt/homebrew/opt/ruby/bin:/opt/homebrew/bin:$PATH"
+```
+
+Then install and build from the repository root:
+
+```bash
+brew install cmake ninja just llvm node ruby autoconf automake libtool pkgconf
+mkdir -p "$(dirname "$VCPKG_ROOT")"
+if [ ! -d "$VCPKG_ROOT/.git" ]; then
+  git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+fi
+"$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+mkdir -p "$(dirname "$SLIMR_CPP")"
+if [ ! -d "$SLIMR_CPP/.git" ]; then
+  git clone https://github.com/bdombro/slimr-cpp.git "$SLIMR_CPP"
+fi
+(cd "$SLIMR_CPP" && just publish --local --all)
+ln -s "$SLIMR_CPP/ports/libhv" "$VCPKG_OVERLAY_PORTS/libhv"
+
+"$CXX" --version
+vcpkg version
+BUGSINK_DSN="" just test
+just build
+```
+
+The libhv link is a one-time step: if it exists, verify that it points to the
+chosen checkout's `ports/libhv` before skipping the command. Never overwrite
+a conflicting port directory or modify installed headers/caches. Current HTTP
+builds need both local slimr overlays and the separately pinned libhv port;
+the older published registry baseline alone is not an HTTP build substitute.
+`just deps` installs dependencies into `build/deps/`; vcpkg supplies Lexbor,
+static SQLite/FTS5 and WebSocket-enabled curl. Separate Homebrew library
+installs are unnecessary.
+
+Bootstrapping puts the executable at `$VCPKG_ROOT/vcpkg`, with no `bin/`
+subdirectory. Keg-only Homebrew Ruby supplies `/opt/homebrew/opt/ruby/bin/ruby`.
+Homebrew LLVM supplies lint tooling; select a different compatible `CXX`
+before first configure if needed, since CMake caches it. For reproducible
+vcpkg tooling, check out the tested full `VCPKG_REF` commit before bootstrapping;
+package registry baselines pin resolution separately.
+For live shopping, separately install Brave with
+`brew install --cask brave-browser` and configure its loopback CDP endpoint
+as described above. macOS supplies `osascript` for confirmation dialogs.
+Build/test commands do not launch a browser, open shopping tabs, or start
+services.
+
 ## Building & Testing
 
 Fixtures are original, minimal synthetic markup, not redistributed retailer page captures.
@@ -195,11 +325,11 @@ export VCPKG_OVERLAY_PORTS="$VCPKG_ROOT/local-ports"
 Debug sanitizers and Release IPO builds have separate `build/cmake/Debug/` and `build/cmake/Release/` graphs. Both enable libc++ hardening and zero automatic-variable initialization; Debug adds ASan and fatal UBSan. Set `CXX` before the first configure to override the default Apple compiler on macOS or `clang++` on Linux; subsequent configures preserve CMake's cached compiler even when clang-tidy is added to `PATH`. CTest runs offline fixtures from the repository root with `SHOP_ASSISTANT_DIALOGS=off`, a finite timeout, and isolated repo-local HOME/XDG/temporary directories. Release builds run those tests too.
 
 ```bash
-just test     # Run core tests, seven synthetic search-parser cases and the 22-adapter registry check with ASan + UBSan
+just test     # Run core, site-parser, CLI, HTTP, and thread-safety tests with ASan + UBSan
 just build    # Build/test Release binary at build/bin/shop-assistant-mcp
-just lint     # Analyze app and test translation units using compile_commands.json
-just test-mcp # Inspector 2.14.0 initialize + tools/list only (requires compatible Node/npm)
+just lint     # Analyze app and test translation units using compile_commands.json (supports CLANG_TIDY)
+just test-mcp # Verify stdio (mcp) and ephemeral HTTP (http --port 0 --allow-ephemeral-port) against MCP 2026-07-28
 just run --help # Run the existing Release binary without rebuilding
 ```
 
-Inspector runs the server with an isolated HOME/XDG environment, no external CLI PATH or credentials, and Bugsink disabled; it never opens browser tabs or invokes data tools. Linux/macOS PR CI uses the same commands and requires the tested full `VCPKG_REF` commit variable; slimr packages use the pinned public registry without a dependency token. Linux execution and remote merge-gate enforcement are not claimed by local macOS verification.
+`just test` and `just test-mcp` run the server with an isolated HOME/XDG environment, no external CLI PATH or credentials, `SHOP_ASSISTANT_DIALOGS=off`, and Bugsink disabled; they never open browser tabs or invoke external retail sites. Linux/macOS PR CI uses the same commands and requires the tested full `VCPKG_REF` commit variable; slimr packages use the pinned public registry without a dependency token. Linux execution and remote merge-gate enforcement are not claimed by local macOS verification.

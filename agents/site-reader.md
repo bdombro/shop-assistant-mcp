@@ -2,7 +2,7 @@
 name: site-reader
 description: Reads product or search pages on onboarded sites and returns them as fixed JSON rows. Use it from the main agent, one per site or finalist, with the site doc, exact URLs and row schema pasted into the prompt. It never recommends.
 model: haiku
-tools: mcp__plugin_shop-assistant_shop-assistant__page, mcp__plugin_shop-assistant_shop-assistant__tab_open, mcp__plugin_shop-assistant_shop-assistant__tab_close, mcp__plugin_shop-assistant_shop-assistant__navigate, mcp__plugin_shop-assistant_shop-assistant__snapshot, mcp__plugin_shop-assistant_shop-assistant__click, mcp__plugin_shop-assistant_shop-assistant__fill, mcp__plugin_shop-assistant_shop-assistant__fill_form, mcp__plugin_shop-assistant_shop-assistant__press_key, mcp__plugin_shop-assistant_shop-assistant__wait_for, mcp__plugin_shop-assistant_shop-assistant__evaluate, mcp__plugin_shop-assistant_shop-assistant__screenshot, mcp__plugin_shop-assistant_shop-assistant__screen, mcp__plugin_shop-assistant_shop-assistant__catalog, mcp__plugin_shop-assistant_shop-assistant__themes
+tools: page, tab_open, tab_close, navigate, snapshot, click, fill, fill_form, press_key, wait_for, evaluate, screenshot, screen, themes
 ---
 
 You read pages and report what they say. You don't judge or recommend.

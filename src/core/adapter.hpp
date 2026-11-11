@@ -11,6 +11,7 @@
 #include <cmath>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <regex>
 #include <sstream>
@@ -669,17 +670,20 @@ public:
     }
 
     void registerAdapter(std::unique_ptr<SiteAdapter> adapter) {
+        std::lock_guard<std::mutex> lock(mu_);
         std::string id = adapter->id();
         adapters_[std::move(id)] = std::move(adapter);
     }
 
     SiteAdapter* get(std::string_view id) const {
+        std::lock_guard<std::mutex> lock(mu_);
         auto it = adapters_.find(std::string(id));
         if (it != adapters_.end()) return it->second.get();
         return nullptr;
     }
 
     std::vector<std::string> allIds() const {
+        std::lock_guard<std::mutex> lock(mu_);
         std::vector<std::string> ids;
         for (const auto& [k, _] : adapters_) ids.push_back(k);
         return ids;
@@ -687,6 +691,7 @@ public:
 
 private:
     AdapterRegistry() = default;
+    mutable std::mutex mu_;
     std::map<std::string, std::unique_ptr<SiteAdapter>> adapters_;
 };
 

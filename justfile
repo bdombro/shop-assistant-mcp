@@ -30,16 +30,37 @@ build: (configure "Release")
     ctest --test-dir build/cmake/Release --output-on-failure --no-tests=error
 
 lint: (configure "Debug")
-    clang-tidy -p build/cmake/Debug src/main.cpp tests/test_main.cpp
+    "${CLANG_TIDY:-clang-tidy}" -p build/cmake/Debug src/main.cpp tests/test_main.cpp
 
 test-mcp: build
     node scripts/test-mcp.mjs build/bin/shop-assistant-mcp search,offer,reviews,page,themes,open,navigate,click,fill,fill_form,press_key,wait_for,evaluate,snapshot,screen,screenshot,tab_open,tab_close,status
 
-inspect:
-    npx --yes @modelcontextprotocol/inspector@2.14.0 ./build/bin/shop-assistant-mcp mcp
+install:
+    node scripts/homebrew.mjs install
+
+install-local:
+    node scripts/homebrew.mjs install-local
+
+reinstall-local:
+    node scripts/homebrew.mjs reinstall-local
+
+start:
+    node scripts/homebrew.mjs start
+
+stop:
+    node scripts/homebrew.mjs stop
+
+restart:
+    node scripts/homebrew.mjs restart
+
+status:
+    node scripts/homebrew.mjs status
+
+uninstall:
+    node scripts/homebrew.mjs uninstall
 
 run *args:
     ./build/bin/shop-assistant-mcp "$@"
 
 clean:
-    rm -rf build
+    rm -rf build Formula/.staging

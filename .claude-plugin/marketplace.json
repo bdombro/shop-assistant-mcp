@@ -1,0 +1,14 @@
+{
+  "name": "bdombro-shop-assistant-mcp",
+  "owner": {
+    "name": "Brian Dombrowski",
+    "email": "bdombro@users.noreply.github.com"
+  },
+  "plugins": [
+    {
+      "name": "shop-assistant-mcp",
+      "source": "./",
+      "description": "Guarded retail shopping and browser automation MCP server over CDP"
+    }
+  ]
+}

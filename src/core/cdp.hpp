@@ -251,7 +251,8 @@ public:
         std::string_view method,
         const slimr::Json& params = slimr::Json{},
         std::optional<std::string_view> sessionId = std::nullopt) override {
-        if (!is_open_ || !ws_.isConnected()) {
+        std::lock_guard<std::recursive_mutex> ioLock(io_mu_);
+        if (!isOpenLocked()) {
             shutdown();
             throw std::runtime_error(CDP_CLOSED);
         }
@@ -273,7 +274,7 @@ public:
         }
 
         auto start = std::chrono::steady_clock::now();
-        while (is_open_) {
+        while (isOpenFlag()) {
             auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - start).count();
             if (elapsed > 30000) {
@@ -321,32 +322,45 @@ public:
     }
 
     size_t on(std::function<void(const CdpEvent&)> listener) override {
+        std::lock_guard<std::mutex> lock(state_mu_);
         size_t id = ++listener_seq_;
         listeners_[id] = std::move(listener);
         return id;
     }
 
     void off(size_t id) override {
+        std::lock_guard<std::mutex> lock(state_mu_);
         listeners_.erase(id);
     }
 
     void onClose(std::function<void()> listener) override {
-        if (!is_open_) {
+        bool alreadyClosed = false;
+        {
+            std::lock_guard<std::mutex> lock(state_mu_);
+            if (!is_open_) {
+                alreadyClosed = true;
+            } else {
+                close_listeners_.push_back(std::move(listener));
+            }
+        }
+        if (alreadyClosed) {
             listener();
-        } else {
-            close_listeners_.push_back(std::move(listener));
         }
     }
 
     bool isOpen() const noexcept override {
-        return is_open_ && ws_.isConnected();
+        std::lock_guard<std::recursive_mutex> ioLock(io_mu_);
+        return isOpenLocked();
     }
 
     void close() override {
+        std::lock_guard<std::recursive_mutex> ioLock(io_mu_);
         shutdown();
     }
 
 private:
+    mutable std::recursive_mutex io_mu_;
+    mutable std::mutex state_mu_;
     slimr::WebSocket ws_;
     int64_t seq_ = 0;
     size_t listener_seq_ = 0;
@@ -354,19 +368,36 @@ private:
     std::map<size_t, std::function<void(const CdpEvent&)>> listeners_;
     std::vector<std::function<void()>> close_listeners_;
 
+    bool isOpenFlag() const noexcept {
+        std::lock_guard<std::mutex> lock(state_mu_);
+        return is_open_;
+    }
+
+    bool isOpenLocked() const noexcept {
+        return isOpenFlag() && ws_.isConnected();
+    }
+
     void dispatchListeners(const CdpEvent& ev) {
-        auto copy = listeners_;
+        std::map<size_t, std::function<void(const CdpEvent&)>> copy;
+        {
+            std::lock_guard<std::mutex> lock(state_mu_);
+            copy = listeners_;
+        }
         for (const auto& [_, l] : copy) {
             l(ev);
         }
     }
 
     void shutdown() {
-        if (!is_open_) return;
-        is_open_ = false;
+        std::vector<std::function<void()>> closeCopy;
+        {
+            std::lock_guard<std::mutex> lock(state_mu_);
+            if (!is_open_) return;
+            is_open_ = false;
+            closeCopy = std::move(close_listeners_);
+            close_listeners_.clear();
+        }
         ws_.close();
-        auto closeCopy = std::move(close_listeners_);
-        close_listeners_.clear();
         for (const auto& l : closeCopy) {
             l();
         }
