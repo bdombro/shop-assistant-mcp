@@ -1,0 +1,12 @@
+{
+  "name": "shop-assistant-mcp",
+  "version": "2.0.0",
+  "dependencies": [
+    "slimr-mcp",
+    "slimr-sqlite",
+    "slimr-yaml",
+    "slimr-ws",
+    "slimr-test",
+    "lexbor"
+  ]
+}

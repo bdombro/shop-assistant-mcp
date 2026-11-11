@@ -1,0 +1,38 @@
+{
+  "locale": {
+    "country": "IE",
+    "currency": "EUR",
+    "language": "en"
+  },
+  "locations": [
+    {
+      "id": "home",
+      "label": "Maynooth",
+      "lat": 53.381,
+      "lon": -6.591,
+      "role": "home"
+    },
+    {
+      "id": "commute",
+      "label": "Dublin city centre",
+      "lat": 53.349,
+      "lon": -6.26,
+      "role": "commute"
+    }
+  ],
+  "pickup": {
+    "maxKm": 25,
+    "urgentMaxKm": 40,
+    "avoid": "far south Dublin"
+  },
+  "sites": {
+    "screwfix": {
+      "preferredStores": [
+        "Kylemore Rd",
+        "Talbot St"
+      ]
+    }
+  },
+  "dbPath": "~/.local/state/shop-assistant/shop.db",
+  "cdpPort": 9222
+}
