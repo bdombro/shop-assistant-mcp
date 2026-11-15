@@ -29,9 +29,9 @@ plugins/shop-assistant-mcp/
 │   ├── homebrew.mjs          # Local formula staging & brew services lifecycle
 │   └── test-mcp.mjs          # Stdio + ephemeral HTTP (`2026-07-28`) smoke check
 ├── .cursor-plugin/
-│   └── plugin.json           # Cursor plugin manifest -> http://127.0.0.1:8085/mcp
+│   └── plugin.json           # Cursor plugin manifest -> http://127.0.0.1:10005/mcp
 ├── .claude-plugin/
-│   ├── plugin.json           # Claude plugin manifest -> http://127.0.0.1:8085/mcp
+│   ├── plugin.json           # Claude plugin manifest -> http://127.0.0.1:10005/mcp
 │   └── marketplace.json      # Claude plugin marketplace descriptor
 ├── docs/                     # Embedded MCP resources (`agent-guide.md`, `categories/`)
 ├── sites/                    # 25 site policy Markdown files (`<site>.md` with YAML frontmatter)
@@ -49,7 +49,7 @@ plugins/shop-assistant-mcp/
 │   │   ├── all_sites.hpp     # Registers all 22 site adapters into `AdapterRegistry`
 │   │   └── <site>.hpp        # 22 site-specific HTML/JSON-LD parsers (`screwfix.hpp`, `amazon.hpp`, …)
 │   ├── app.hpp               # `shop::make_shop_assistant_app()` registering all 19 tools, resources & optional reporting
-│   └── main.cpp              # Standalone CLI, stdio MCP, and Streamable HTTP (`127.0.0.1:8085`) entrypoint
+│   └── main.cpp              # Standalone CLI, stdio MCP, and Streamable HTTP (`127.0.0.1:10005`) entrypoint
 ├── tests/
 │   ├── test_core.hpp         # Core DOM, Markdown, policy, SQLite, HTTP, CLI, and thread-safety test cases
 │   ├── test_sites.hpp        # Site adapter fixture test suites
@@ -71,15 +71,15 @@ plugins/shop-assistant-mcp/
 
 ## HTTP & Client Configuration (MCP `2026-07-28`)
 
-`shop-assistant-mcp` defaults to HTTP-first Streamable HTTP on `http://127.0.0.1:8085/mcp` (`shop-assistant-mcp http`) while preserving stdio (`shop-assistant-mcp mcp`) and direct JSON CLI invocation (`shop-assistant-mcp <tool> ['{...}']`).
+`shop-assistant-mcp` defaults to HTTP-first Streamable HTTP on `http://127.0.0.1:10005/mcp` (`shop-assistant-mcp http`) while preserving stdio (`shop-assistant-mcp mcp`) and direct JSON CLI invocation (`shop-assistant-mcp <tool> ['{...}']`).
 
 > **Breaking change (MCP `2026-07-28`):** Legacy `initialize` / `notifications/initialized` session handshakes are replaced by stateless `server/discover` with `MCP-Protocol-Version: 2026-07-28` and `Mcp-Method` headers (legacy `initialize` returns `-32601`). Non-loopback bindings require `--allow-non-loopback`, and `--port 0` requires `--allow-ephemeral-port`.
 
-### Homebrew Service (`http://127.0.0.1:8085/mcp`)
+### Homebrew Service (`http://127.0.0.1:10005/mcp`)
 
 ```bash
 just install-local   # Local source-build installation; the release formula is not finalized
-just start           # starts LaunchAgent service on 127.0.0.1:8085 and verifies server/discover
+just start           # starts LaunchAgent service on 127.0.0.1:10005 and verifies server/discover
 just status          # checks brew services info + HTTP server/discover
 just stop            # stops LaunchAgent service
 ```
@@ -93,7 +93,7 @@ just stop            # stops LaunchAgent service
   "mcpServers": {
     "shop-assistant-mcp": {
       "type": "http",
-      "url": "http://127.0.0.1:8085/mcp"
+      "url": "http://127.0.0.1:10005/mcp"
     }
   }
 }
@@ -105,7 +105,7 @@ just stop            # stops LaunchAgent service
 {
   "mcpServers": {
     "shop-assistant-mcp": {
-      "url": "http://127.0.0.1:8085/mcp"
+      "url": "http://127.0.0.1:10005/mcp"
     }
   }
 }
@@ -119,7 +119,7 @@ just stop            # stops LaunchAgent service
     "servers": {
       "shop-assistant-mcp": {
       "type": "remote",
-      "url": "http://127.0.0.1:8085/mcp",
+      "url": "http://127.0.0.1:10005/mcp",
         "protocol": "2026-07-28"
       }
     }

@@ -12,7 +12,7 @@
   "license": "ISC",
   "mcpServers": {
     "shop-assistant-mcp": {
-      "url": "http://127.0.0.1:8085/mcp"
+      "url": "http://127.0.0.1:10005/mcp"
     }
   }
 }

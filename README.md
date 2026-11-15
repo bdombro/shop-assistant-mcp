@@ -70,7 +70,7 @@ brew services restart bdombro/shop-assistant-mcp/shop-assistant-mcp
 brew services stop bdombro/shop-assistant-mcp/shop-assistant-mcp
 ```
 
-The endpoint is `http://127.0.0.1:8085/mcp`; logs are under
+The endpoint is `http://127.0.0.1:10005/mcp`; logs are under
 `/opt/homebrew/var/log/`. To run in the foreground instead, use
 `shop-assistant-mcp http` (or `./build/bin/shop-assistant-mcp http` from a source checkout).
 Do not run the foreground server and service on the same port.
@@ -88,7 +88,7 @@ After starting the service, add this server to OpenCode v2.2.6's
     "servers": {
       "shop-assistant-mcp": {
         "type": "remote",
-        "url": "http://127.0.0.1:8085/mcp",
+        "url": "http://127.0.0.1:10005/mcp",
         "protocol": "2026-07-28"
       }
     }
@@ -104,7 +104,7 @@ applies to every transport.
 
 ## Tools & CLI Commands
 
-Every tool is exposed over MCP (`shop-assistant-mcp http` on `http://127.0.0.1:8085/mcp`, `shop-assistant-mcp mcp` over stdio) and on the CLI (`shop-assistant-mcp <tool> ['{"arg":"val"}']`). Existing `shop-assistant://` resources and data paths are unchanged.
+Every tool is exposed over MCP (`shop-assistant-mcp http` on `http://127.0.0.1:10005/mcp`, `shop-assistant-mcp mcp` over stdio) and on the CLI (`shop-assistant-mcp <tool> ['{"arg":"val"}']`). Existing `shop-assistant://` resources and data paths are unchanged.
 
 | Tool | Mutating | Description |
 | --- | --- | --- |

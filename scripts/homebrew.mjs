@@ -13,7 +13,7 @@ const TAP_SHORT_DIR = 'homebrew-shop-assistant-mcp';
 const FORMULA_PATH = path.join(REPO_ROOT, 'Formula', `${FORMULA_NAME}.rb`);
 const STAGING_DIR = path.join(REPO_ROOT, 'Formula', '.staging');
 const BINARY_PATH = path.join(REPO_ROOT, 'build', 'bin', FORMULA_NAME);
-const ENDPOINT_URL = 'http://127.0.0.1:8085/mcp';
+const ENDPOINT_URL = 'http://127.0.0.1:10005/mcp';
 
 function run(cmd, args, opts = {}) {
   return execFileSync(cmd, args, {

@@ -13,7 +13,7 @@ class ShopAssistantMcp < Formula
   end
 
   service do
-    run [opt_bin/"shop-assistant-mcp", "http", "--host", "127.0.0.1", "--port", "8085"]
+    run [opt_bin/"shop-assistant-mcp", "http", "--host", "127.0.0.1", "--port", "10005"]
     working_dir opt_pkgshare
     keep_alive true
     log_path var/"log/shop-assistant-mcp.log"
@@ -23,7 +23,7 @@ class ShopAssistantMcp < Formula
   def caveats
     <<~EOS
       HTTP MCP endpoint:
-        http://127.0.0.1:8085/mcp
+        http://127.0.0.1:10005/mcp
 
       Optional user policy & Brave CDP configuration:
         ~/.config/shop-assistant/config.json
