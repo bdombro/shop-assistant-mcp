@@ -1,11 +1,11 @@
 class ShopAssistantMcp < Formula
   desc "Guarded retail shopping and browser automation MCP server over CDP"
   homepage "https://github.com/bdombro/shop-assistant-mcp"
-  version "2.1.0"
+  version "2.2.0"
 
   on_macos do
-    url "https://github.com/bdombro/shop-assistant-mcp/releases/download/v2.1.0/shop-assistant-mcp-arm64-macos.tar.gz"
-    sha256 "6ad582834839812552ee2119b4110fb7300f0ba61fda073f50a4c3bb05b607b8"
+    url "https://github.com/bdombro/shop-assistant-mcp/releases/download/v2.2.0/shop-assistant-mcp-arm64-macos.tar.gz"
+    sha256 "2e9a46bf0c3009bb899498a39c08d525cdaa8c9301b3528df8e53d7ebf9438ac"
   end
 
   def install
