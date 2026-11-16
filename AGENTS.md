@@ -107,15 +107,6 @@ with implemented behavior; do not claim unverified release or client support.
 
 ## Build Architecture
 
-CMake declares targets/dependencies; Ninja owns incremental builds. Just orchestrates automatic `deps` before configure/build/test/lint; CMake manifest auto-install is disabled. Set `VCPKG_ROOT` and `VCPKG_OVERLAY_PORTS` in the environment. Dependencies install under `build/deps/`; Debug sanitizer and Release trees live under `build/cmake/`. Use installed slimr targets, never source-checkout include overrides. SQLite with FTS5 and Lexbor use their static imported targets. `run` does not rebuild.
+CMake declares targets/dependencies; Ninja owns incremental builds. Just orchestrates automatic `deps` before configure/build/test/lint; CMake manifest auto-install is disabled. Set `VCPKG_ROOT` in the environment. Dependencies install under `build/deps/`; Debug sanitizer and Release trees live under `build/cmake/`. Use installed `slimr-*` targets from the pinned vcpkg registries, never source-checkout include overrides. SQLite with FTS5 and Lexbor use their static imported targets.
 
-Use a Clang/C++26 toolchain with libc++ FAST hardening, CMake, Ninja, vcpkg, just, and compatible clang-tidy. CTest runs fixture tests from the repository root with `SHOP_ASSISTANT_DIALOGS=off`. `test-mcp` checks July discovery over stdio and ephemeral HTTP with Node and an isolated server environment; never call browser/data tools in CI.
-
-## C++ Memory Safety
-
-- Immediately wrap owned C handles, allocations, descriptors, and temporary resources in RAII. Make owning wrappers noncopyable unless copying creates independent ownership; moves must leave the source safely destructible.
-- Borrow views, pointers, and references only for the current call by default. Store owning values unless lifetime/invalidation guarantees are explicit. Deferred callbacks require explicit ownership-safe captures; no escaping reference captures without a demonstrated lifetime guarantee.
-- Initialize scalar/pointer members at declaration and local values before use. Compiler auto-initialization is defense in depth, not permission for uninitialized reads.
-- Check range/overflow before narrowing lengths/counts at C API boundaries; casts alone are not validation. Report invalid inputs using existing error mechanisms.
-- Never let C++ exceptions escape C callbacks. Translate them into the C API's error/abort mechanism and propagate failures at the C++ boundary; do not silently swallow them.
-- Preserve hardening, zero auto-initialization, ASan/UBSan with fatal reports, and required lint/tests. These checks do not prove memory safety.
+Use Apple Clang (`/usr/bin/clang++`) with C++26 and libc++ FAST hardening, CMake, Ninja, vcpkg, just, and `llvm@23` (`LLVM_BIN`) for clang-format and clang-tidy. CTest runs fixture tests from the repository root with `SHOP_ASSISTANT_DIALOGS=off`. `test-mcp` checks July discovery over stdio and ephemeral HTTP with Bun and an isolated server environment; never call browser/data tools in CI.
