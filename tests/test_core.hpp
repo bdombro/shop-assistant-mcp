@@ -827,7 +827,16 @@ TEST_SUITE("http and concurrency") {
         CHECK(listStatus == 200);
         std::set<std::string> names;
         for (const auto &t : listed["result"]["tools"].get<slimr::Json::array_t>()) {
-            names.insert(t["name"].get<std::string>());
+            const std::string name = t["name"].get<std::string>();
+            names.insert(name);
+            if (name == "status") {
+                REQUIRE(t.contains("outputSchema"));
+                CHECK(t["outputSchema"]["properties"].contains("version"));
+                CHECK(t["outputSchema"]["properties"].contains("sitesCount"));
+                CHECK(t["outputSchema"]["properties"].contains("cdp"));
+            } else if (name == "evaluate") {
+                CHECK_FALSE(t.contains("outputSchema"));
+            }
         }
         CHECK(names == std::set<std::string>{
                            "search", "offer", "reviews", "page", "themes",
@@ -843,6 +852,8 @@ TEST_SUITE("http and concurrency") {
             "status");
         CHECK(callStatus == 200);
         CHECK((!called["result"].contains("isError") || !called["result"]["isError"].get<bool>()));
+        REQUIRE(called["result"].contains("structuredContent"));
+        CHECK(called["result"]["structuredContent"]["sitesCount"].get<int64_t>() == 22);
 
         auto [initStatus, initResp] = postMcp(
             port, "initialize",

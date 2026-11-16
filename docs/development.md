@@ -32,7 +32,7 @@ plugins/shop-assistant-mcp/
 │   └── workflows/{test,release}.yml # PR/manual test workflow and tag/formula release workflow
 ├── scripts/
 │   ├── doctor.sh             # Tooling, C++26, LLVM_BIN, VCPKG_ROOT checks
-│   ├── test-mcp.ts           # Bun stdio + ephemeral HTTP (`2026-07-28`) smoke check
+│   ├── test-mcp.ts           # Bun ephemeral HTTP (`2026-07-28`) smoke check
 │   ├── release.ts            # Release version bump, changelog promotion, commit/tag/gh-release
 │   └── formula-shared.ts     # Formula/changelog parsing and SHA-256 helpers
 ├── .clang-format / .clang-tidy     # Formatting and static-analysis config (llvm@23)
@@ -59,7 +59,7 @@ plugins/shop-assistant-mcp/
 │   │   ├── all_sites.hpp     # Registers all 22 site adapters into `AdapterRegistry`
 │   │   └── <site>.hpp        # 22 site-specific HTML/JSON-LD parsers (`screwfix.hpp`, `amazon.hpp`, …)
 │   ├── app.hpp               # `shop::make_shop_assistant_app()` registering all 19 tools, resources & optional reporting
-│   └── main.cpp              # Standalone CLI, stdio MCP, and Streamable HTTP (`127.0.0.1:10005`) entrypoint
+│   └── main.cpp              # Standalone CLI and Streamable HTTP (`127.0.0.1:10005`) entrypoint
 ├── tests/
 │   ├── test_core.hpp         # Core DOM, Markdown, policy, SQLite, HTTP, CLI, and thread-safety test cases
 │   ├── test_sites.hpp        # Site adapter fixture test suites
@@ -81,7 +81,7 @@ plugins/shop-assistant-mcp/
 
 ## HTTP & Client Configuration (MCP `2026-07-28`)
 
-`shop-assistant-mcp` defaults to Streamable HTTP on `0.0.0.0:10005/mcp` (`shop-assistant-mcp http`) while preserving stdio (`shop-assistant-mcp mcp`) and direct JSON CLI invocation (`shop-assistant-mcp <tool> ['{...}']`).
+`shop-assistant-mcp` defaults to Streamable HTTP on `0.0.0.0:10005/mcp` (`shop-assistant-mcp http`) while preserving direct JSON CLI invocation (`shop-assistant-mcp <tool> ['{...}']`).
 
 > **Breaking change (MCP `2026-07-28`):** Legacy `initialize` / `notifications/initialized` session handshakes are replaced by stateless `server/discover` with `MCP-Protocol-Version: 2026-07-28` and `Mcp-Method` headers (legacy `initialize` returns `-32601`).
 
@@ -145,22 +145,6 @@ just daemon-logs     # tails $(brew --prefix)/var/log/shop-assistant-mcp.log
 }
 ```
 
-**Standalone stdio (`.mcp.json` fallback):**
-
-```json
-{
-  "mcpServers": {
-    "shop-assistant-mcp": {
-      "command": "/absolute/path/to/shop-assistant-mcp/build/bin/shop-assistant-mcp",
-      "args": ["mcp"],
-      "env": {
-        "SHOP_ASSISTANT_CDP_URL": "http://127.0.0.1:9222"
-      }
-    }
-  }
-}
-```
-
 ## Key Capabilities & Architecture
 
 - **22 Onboarded Site Adapters (`src/sites/`):**
@@ -195,7 +179,7 @@ just doctor   # Verify required tools, C++26 compiler, LLVM_BIN, and VCPKG_ROOT
 just test     # Run core, site-parser, CLI, HTTP, and thread-safety tests with ASan + UBSan
 just build    # Build Release binary at build/bin/shop-assistant-mcp
 just lint     # Check formatting and analyze src/main.cpp using compile_commands.json
-just test-mcp # Verify stdio (mcp) and ephemeral HTTP (http --port 0) against MCP 2026-07-28
+just test-mcp # Verify ephemeral HTTP (http --port 0) against MCP 2026-07-28
 just release patch # Trigger release.yml, watch completion, and pull the release commit
 ```
 

@@ -166,6 +166,66 @@ struct TabCloseInput {
 
 struct StatusInput {};
 
+struct SearchOutput {
+    slimr::Field<std::string, "Search query."> query;
+    slimr::Field<std::vector<slimr::Json>, "Matching product offers."> results;
+};
+
+struct OfferOutput {
+    slimr::Field<std::string, "Product page URL."> url;
+    slimr::Field<std::string, "Fetch status."> status;
+};
+
+struct ReviewsOutput {
+    slimr::Field<std::string, "Product page URL."> url;
+    slimr::Field<std::vector<slimr::Json>, "Extracted customer reviews."> reviews;
+};
+
+struct PageOutput {
+    slimr::Field<std::string, "Page URL."> url;
+    slimr::Field<std::string, "Rendered Markdown content."> markdown;
+};
+
+struct ThemeInfo {
+    slimr::Field<std::string, "Category theme name."> theme;
+    slimr::Field<std::vector<std::string>, "Site ids in this theme."> sites;
+};
+
+struct ThemesOutput {
+    slimr::Field<std::vector<ThemeInfo>, "Onboarded sites grouped by theme."> themes;
+};
+
+struct TabUrlOutput {
+    slimr::Field<std::string, "Guarded tab ID."> tabId;
+    slimr::Field<std::string, "Tab URL."> url;
+};
+
+struct TabStatusOutput {
+    slimr::Field<std::string, "Guarded tab ID."> tabId;
+    slimr::Field<std::string, "Action status."> status;
+};
+
+struct SnapshotOutput {
+    slimr::Field<std::string, "Guarded tab ID."> tabId;
+    slimr::Field<std::string, "Accessibility tree snapshot."> snapshot;
+};
+
+struct ScreenOutput {
+    slimr::Field<std::string, "Guarded tab ID."> tabId;
+    slimr::Field<std::string, "Rendered page text."> content;
+};
+
+struct ScreenshotOutput {
+    slimr::Field<std::string, "Guarded tab ID."> tabId;
+    slimr::Field<std::string, "Base64-encoded PNG screenshot data."> screenshot;
+};
+
+struct StatusOutput {
+    slimr::Field<std::string, "Plugin version."> version;
+    slimr::Field<int, "Number of onboarded sites."> sitesCount;
+    slimr::Field<std::string, "CDP reachability status."> cdp;
+};
+
 // ============================================================================
 // App Factory
 // ============================================================================
@@ -235,141 +295,104 @@ inline slimr::PluginApp make_shop_assistant_app() {
     sites::register_all_sites(core::AdapterRegistry::instance());
 #endif
 
-    // Register Tools with typed input structs and ToolAnnotations
+    // Register Tools with typed input/output structs and ToolAnnotations
     app.tool<SearchInput>(
         "search",
         "Search one or more onboarded sites or a category theme concurrently.",
         slimr::ToolAnnotations{.readOnlyHint = true, .openWorldHint = true},
-        [](const SearchInput &in) -> slimr::Json {
-            slimr::Json::object_t res;
-            res["query"] = in.query.get();
-            res["results"] = slimr::Json::array_t{};
-            return res;
+        [](const SearchInput &in) -> SearchOutput {
+            return SearchOutput{.query = in.query.get(), .results = {}};
         });
 
     app.tool<OfferInput>(
         "offer",
         "Fetch structured product details from a product URL.",
         slimr::ToolAnnotations{.readOnlyHint = true, .openWorldHint = true},
-        [](const OfferInput &in) -> slimr::Json {
-            slimr::Json::object_t res;
-            res["url"] = in.url.get();
-            res["status"] = "ok";
-            return res;
+        [](const OfferInput &in) -> OfferOutput {
+            return OfferOutput{.url = in.url.get(), .status = "ok"};
         });
 
     app.tool<ReviewsInput>(
         "reviews",
         "Extract customer review summaries and individual reviews for a product URL.",
         slimr::ToolAnnotations{.readOnlyHint = true, .openWorldHint = true},
-        [](const ReviewsInput &in) -> slimr::Json {
-            slimr::Json::object_t res;
-            res["url"] = in.url.get();
-            res["reviews"] = slimr::Json::array_t{};
-            return res;
+        [](const ReviewsInput &in) -> ReviewsOutput {
+            return ReviewsOutput{.url = in.url.get(), .reviews = {}};
         });
 
     app.tool<PageInput>(
         "page",
         "Read any allowed URL on an onboarded site as clean, sectioned Markdown.",
         slimr::ToolAnnotations{.readOnlyHint = true, .openWorldHint = true},
-        [](const PageInput &in) -> slimr::Json {
-            slimr::Json::object_t res;
-            res["url"] = in.url.get();
-            res["markdown"] = "# Page\n\nClean markdown content.";
-            return res;
+        [](const PageInput &in) -> PageOutput {
+            return PageOutput{.url = in.url.get(), .markdown = "# Page\n\nClean markdown content."};
         });
 
     app.tool<ThemesInput>(
         "themes",
         "List onboarded sites grouped by category theme along with policy and health status.",
         slimr::ToolAnnotations{.readOnlyHint = true, .openWorldHint = false},
-        [](const ThemesInput &) -> slimr::Json {
-            slimr::Json::object_t res;
-            slimr::Json::array_t themes;
-            slimr::Json::object_t theme;
-            theme["theme"] = "diy";
-            theme["sites"] = slimr::Json::array_t{"screwfix", "woodies", "chadwicks"};
-            themes.push_back(std::move(theme));
-            res["themes"] = std::move(themes);
-            return res;
+        [](const ThemesInput &) -> ThemesOutput {
+            return ThemesOutput{
+                .themes = std::vector<ThemeInfo>{
+                    ThemeInfo{.theme = "diy", .sites = std::vector<std::string>{"screwfix", "woodies", "chadwicks"}}},
+            };
         });
 
     app.tool<OpenInput>(
         "open",
         "Open a new guarded browser tab on an onboarded site URL.",
         slimr::ToolAnnotations{.readOnlyHint = false, .openWorldHint = true},
-        [](const OpenInput &in) -> slimr::Json {
-            slimr::Json::object_t res;
-            res["tabId"] = "tab_1";
-            res["url"] = in.url.get();
-            return res;
+        [](const OpenInput &in) -> TabUrlOutput {
+            return TabUrlOutput{.tabId = "tab_1", .url = in.url.get()};
         });
 
     app.tool<NavigateInput>(
         "navigate",
         "Navigate an existing guarded tab to a new allowed URL.",
         slimr::ToolAnnotations{.readOnlyHint = false, .openWorldHint = true},
-        [](const NavigateInput &in) -> slimr::Json {
-            slimr::Json::object_t res;
-            res["tabId"] = in.tabId.get();
-            res["url"] = in.url.get();
-            return res;
+        [](const NavigateInput &in) -> TabUrlOutput {
+            return TabUrlOutput{.tabId = in.tabId.get(), .url = in.url.get()};
         });
 
     app.tool<ClickInput>(
         "click",
         "Click an element selector or accessibility ref in a guarded tab.",
         slimr::ToolAnnotations{.readOnlyHint = false, .openWorldHint = false},
-        [](const ClickInput &in) -> slimr::Json {
-            slimr::Json::object_t res;
-            res["tabId"] = in.tabId.get();
-            res["status"] = "clicked";
-            return res;
+        [](const ClickInput &in) -> TabStatusOutput {
+            return TabStatusOutput{.tabId = in.tabId.get(), .status = "clicked"};
         });
 
     app.tool<FillInput>(
         "fill",
         "Fill an input field in a guarded tab.",
         slimr::ToolAnnotations{.readOnlyHint = false, .openWorldHint = false},
-        [](const FillInput &in) -> slimr::Json {
-            slimr::Json::object_t res;
-            res["tabId"] = in.tabId.get();
-            res["status"] = "filled";
-            return res;
+        [](const FillInput &in) -> TabStatusOutput {
+            return TabStatusOutput{.tabId = in.tabId.get(), .status = "filled"};
         });
 
     app.tool<FillFormInput>(
         "fill_form",
         "Fill multiple form fields in a guarded tab.",
         slimr::ToolAnnotations{.readOnlyHint = false, .openWorldHint = false},
-        [](const FillFormInput &in) -> slimr::Json {
-            slimr::Json::object_t res;
-            res["tabId"] = in.tabId.get();
-            res["status"] = "form_filled";
-            return res;
+        [](const FillFormInput &in) -> TabStatusOutput {
+            return TabStatusOutput{.tabId = in.tabId.get(), .status = "form_filled"};
         });
 
     app.tool<PressKeyInput>(
         "press_key",
         "Dispatch a key press in a guarded tab.",
         slimr::ToolAnnotations{.readOnlyHint = false, .openWorldHint = false},
-        [](const PressKeyInput &in) -> slimr::Json {
-            slimr::Json::object_t res;
-            res["tabId"] = in.tabId.get();
-            res["status"] = "key_pressed";
-            return res;
+        [](const PressKeyInput &in) -> TabStatusOutput {
+            return TabStatusOutput{.tabId = in.tabId.get(), .status = "key_pressed"};
         });
 
     app.tool<WaitForInput>(
         "wait_for",
         "Wait for text or a selector to appear in a guarded tab.",
         slimr::ToolAnnotations{.readOnlyHint = true, .openWorldHint = false},
-        [](const WaitForInput &in) -> slimr::Json {
-            slimr::Json::object_t res;
-            res["tabId"] = in.tabId.get();
-            res["status"] = "condition_met";
-            return res;
+        [](const WaitForInput &in) -> TabStatusOutput {
+            return TabStatusOutput{.tabId = in.tabId.get(), .status = "condition_met"};
         });
 
     app.tool<EvaluateInput>(
@@ -387,67 +410,48 @@ inline slimr::PluginApp make_shop_assistant_app() {
         "snapshot",
         "Capture the current accessibility tree / interactive element refs of a guarded tab.",
         slimr::ToolAnnotations{.readOnlyHint = true, .openWorldHint = false},
-        [](const SnapshotInput &in) -> slimr::Json {
-            slimr::Json::object_t res;
-            res["tabId"] = in.tabId.get();
-            res["snapshot"] = "accessibility tree";
-            return res;
+        [](const SnapshotInput &in) -> SnapshotOutput {
+            return SnapshotOutput{.tabId = in.tabId.get(), .snapshot = "accessibility tree"};
         });
 
     app.tool<ScreenInput>(
         "screen",
         "Read the current rendered text/Markdown content of a guarded tab.",
         slimr::ToolAnnotations{.readOnlyHint = true, .openWorldHint = false},
-        [](const ScreenInput &in) -> slimr::Json {
-            slimr::Json::object_t res;
-            res["tabId"] = in.tabId.get();
-            res["content"] = "rendered page text";
-            return res;
+        [](const ScreenInput &in) -> ScreenOutput {
+            return ScreenOutput{.tabId = in.tabId.get(), .content = "rendered page text"};
         });
 
     app.tool<ScreenshotInput>(
         "screenshot",
         "Capture a PNG screenshot of a guarded tab.",
         slimr::ToolAnnotations{.readOnlyHint = true, .openWorldHint = false},
-        [](const ScreenshotInput &in) -> slimr::Json {
-            slimr::Json::object_t res;
-            res["tabId"] = in.tabId.get();
-            res["screenshot"] = "base64_png_data";
-            return res;
+        [](const ScreenshotInput &in) -> ScreenshotOutput {
+            return ScreenshotOutput{.tabId = in.tabId.get(), .screenshot = "base64_png_data"};
         });
 
     app.tool<TabOpenInput>(
         "tab_open",
         "Open a new managed browser tab.",
         slimr::ToolAnnotations{.readOnlyHint = false, .openWorldHint = true},
-        [](const TabOpenInput &in) -> slimr::Json {
-            slimr::Json::object_t res;
-            res["tabId"] = "tab_new";
-            res["url"] = in.url.get();
-            return res;
+        [](const TabOpenInput &in) -> TabUrlOutput {
+            return TabUrlOutput{.tabId = "tab_new", .url = in.url.get()};
         });
 
     app.tool<TabCloseInput>(
         "tab_close",
         "Close a managed browser tab.",
         slimr::ToolAnnotations{.readOnlyHint = false, .openWorldHint = false},
-        [](const TabCloseInput &in) -> slimr::Json {
-            slimr::Json::object_t res;
-            res["tabId"] = in.tabId.get();
-            res["status"] = "closed";
-            return res;
+        [](const TabCloseInput &in) -> TabStatusOutput {
+            return TabStatusOutput{.tabId = in.tabId.get(), .status = "closed"};
         });
 
     app.tool<StatusInput>(
         "status",
         "Return plugin version, onboarded site count, and CDP reachability.",
         slimr::ToolAnnotations{.readOnlyHint = true, .openWorldHint = false},
-        [](const StatusInput &) -> slimr::Json {
-            slimr::Json::object_t res;
-            res["version"] = std::string(APP_VERSION);
-            res["sitesCount"] = 22;
-            res["cdp"] = "ready";
-            return res;
+        [](const StatusInput &) -> StatusOutput {
+            return StatusOutput{.version = std::string(APP_VERSION), .sitesCount = 22, .cdp = "ready"};
         });
 
     return app;

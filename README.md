@@ -94,14 +94,14 @@ After starting the service, add this server to OpenCode v2.2.6's
 ```
 
 Use either an explicit server entry or a plugin manifest, not both.
-Alternative client schemas and stdio configuration are in the
+Alternative client schemas are in the
 [developer reference](docs/development.md). The compatibility notice above
 applies to every transport.
 
 
 ## Tools & CLI Commands
 
-Every tool is exposed over MCP (`shop-assistant-mcp http` on `http://127.0.0.1:10005/mcp`, `shop-assistant-mcp mcp` over stdio) and on the CLI (`shop-assistant-mcp <tool> ['{"arg":"val"}']`). Existing `shop-assistant://` resources and data paths are unchanged.
+Every tool is exposed over MCP (`shop-assistant-mcp http` on `http://127.0.0.1:10005/mcp`) and on the CLI (`shop-assistant-mcp <tool> ['{"arg":"val"}']`). Existing `shop-assistant://` resources and data paths are unchanged.
 
 | Tool | Mutating | Description |
 | --- | --- | --- |
