@@ -784,6 +784,7 @@ TEST_SUITE("http and concurrency") {
         };
 
         auto app = shop::make_shop_assistant_app();
+        CHECK(app.version == SHOP_ASSISTANT_APP_VERSION);
         CHECK(app.instructions.find("shop-assistant://browser") != std::string::npos);
         CHECK(app.instructions.find("shop-assistant://guide") == std::string::npos);
         slimr::enable_http(app, slimr::HttpServerOptions{.host = "127.0.0.1", .port = 10005});

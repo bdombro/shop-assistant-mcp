@@ -32,7 +32,10 @@
 
 namespace shop {
 
-inline constexpr std::string_view APP_VERSION = "2.0.0";
+#ifndef SHOP_ASSISTANT_APP_VERSION
+#error "SHOP_ASSISTANT_APP_VERSION must come from CMake (VERSION)"
+#endif
+inline constexpr std::string_view APP_VERSION = SHOP_ASSISTANT_APP_VERSION;
 inline constexpr std::string_view MCP_INSTRUCTIONS =
     "Use shop-assistant-mcp to shop on onboarded sites: search them for standard offers (price, stock, delivery), "
     "compare, and read product pages through guarded browser tabs. Read shop-assistant://browser and "
@@ -171,7 +174,7 @@ inline slimr::PluginApp make_shop_assistant_app() {
     slimr::PluginApp app("shop-assistant-mcp", std::string(APP_VERSION));
     app.description = "Shop on onboarded retail sites through guarded browser tabs over CDP.";
     app.instructions = std::string(MCP_INSTRUCTIONS);
-    app.setBugsink("");
+    app.setBugsink("", "BUGSINK_DSN", "shop-assistant-mcp@" + std::string(APP_VERSION));
 
     // Register Resources
     auto loadDocFile = [](const std::string &path, const std::string &fallback) -> std::string {
