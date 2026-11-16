@@ -5,6 +5,7 @@
 - Migrate to slimr-serve typed tool handlers and drop stdio `mcp` mode
 - Internal: migrate HTTP/WebSocket client and URL parser to cpp-httplib and RFC 3986 parser
 - Internal: switch macOS builds to `llvm@23` and static `libc++`
+- Internal: pin slimr-mcp v0.2.0 and slimr-serve v0.1.1 baselines, drop overlay-ports
 
 ## v2.1.0 - 2026-11-16
 
