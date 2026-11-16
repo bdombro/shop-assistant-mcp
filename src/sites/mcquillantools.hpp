@@ -164,7 +164,7 @@ class McquillanToolsAdapter : public core::SiteAdapter {
   public:
     std::string id() const override { return "mcquillantools"; }
     core::SearchResult search(core::SiteContext &ctx, const core::SearchQuery &q) override {
-        std::string url = MCQUILLAN_BASE + "catalogsearch/result/?q=" + slimr::url_encode(q.query);
+        std::string url = MCQUILLAN_BASE + "catalogsearch/result/?q=" + shop::sites::urlEncode(q.query);
         std::string html = ctx.fetchText(url);
         return parseMcquillanSearch(html, "2026-11-10T00:00:00Z");
     }

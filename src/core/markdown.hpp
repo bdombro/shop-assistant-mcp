@@ -3,8 +3,7 @@
 #include "dom.hpp"
 #include "json.hpp"
 #include "policy.hpp"
-
-#include <curl/curl.h>
+#include "url.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -154,18 +153,9 @@ inline void absolutize(Node &el, std::string_view attrName, std::string_view bas
     while (!v.empty() && (v.back() == ' ' || v.back() == '\t'))
         v.pop_back();
 
-    CURLU *u = curl_url();
-    if (!u)
-        return;
-    if (curl_url_set(u, CURLUPART_URL, std::string(baseUrl).c_str(), 0) == CURLUE_OK &&
-        curl_url_set(u, CURLUPART_URL, v.c_str(), 0) == CURLUE_OK) {
-        char *resolved = nullptr;
-        if (curl_url_get(u, CURLUPART_URL, &resolved, 0) == CURLUE_OK && resolved) {
-            el.setAttr(attrName, resolved);
-            curl_free(resolved);
-        }
+    if (auto u = resolveUrl(baseUrl, v)) {
+        el.setAttr(attrName, u->toString());
     }
-    curl_url_cleanup(u);
 }
 
 inline std::string renderMarkdown(lxb_dom_node_t *raw, const std::shared_ptr<DocumentState> &state) {

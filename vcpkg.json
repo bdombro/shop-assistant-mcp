@@ -4,11 +4,12 @@
   "dependencies": [
     {
       "name": "slimr-mcp",
-      "features": ["http"]
+      "features": [
+        "http"
+      ]
     },
     "slimr-sqlite",
     "slimr-yaml",
-    "slimr-ws",
     "slimr-test",
     "lexbor"
   ]

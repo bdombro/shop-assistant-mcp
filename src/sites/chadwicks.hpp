@@ -208,7 +208,7 @@ class ChadwicksAdapter : public core::SiteAdapter {
   public:
     std::string id() const override { return "chadwicks"; }
     core::SearchResult search(core::SiteContext &ctx, const core::SearchQuery &q) override {
-        std::string url = CHADWICKS_BASE + "catalogsearch/result/?q=" + slimr::url_encode(q.query);
+        std::string url = CHADWICKS_BASE + "catalogsearch/result/?q=" + shop::sites::urlEncode(q.query);
         std::string text = ctx.fetchText(url);
         return parseChadwicksSearch(text, "2026-11-10T00:00:00Z");
     }

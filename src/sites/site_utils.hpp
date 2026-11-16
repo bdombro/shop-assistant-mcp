@@ -2,7 +2,6 @@
 
 #include "site_helpers.hpp"
 
-#include <curl/curl.h>
 #include <iomanip>
 #include <type_traits>
 

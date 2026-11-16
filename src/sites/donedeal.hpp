@@ -145,7 +145,7 @@ class DonedealAdapter : public core::SiteAdapter {
   public:
     std::string id() const override { return "donedeal"; }
     core::SearchResult search(core::SiteContext &ctx, const core::SearchQuery &q) override {
-        std::string url = DONEDEAL_BASE + "all?words=" + slimr::url_encode(q.query);
+        std::string url = DONEDEAL_BASE + "all?words=" + shop::sites::urlEncode(q.query);
         std::string html = ctx.fetchText(url);
         return parseDonedealSearch(html, "2026-11-10T00:00:00Z");
     }

@@ -174,6 +174,7 @@ inline slimr::PluginApp make_shop_assistant_app() {
     slimr::PluginApp app("shop-assistant-mcp", std::string(APP_VERSION));
     app.description = "Shop on onboarded retail sites through guarded browser tabs over CDP.";
     app.instructions = std::string(MCP_INSTRUCTIONS);
+    app.allowCliTools = true;
     app.setBugsink("", "BUGSINK_DSN", "shop-assistant-mcp@" + std::string(APP_VERSION));
 
     // Register Resources

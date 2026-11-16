@@ -2,8 +2,8 @@
 
 #include "core/adapter.hpp"
 #include "core/dom.hpp"
-#include "curl.hpp"
 #include "json.hpp"
+#include "sites/site_helpers.hpp"
 
 #include <algorithm>
 #include <regex>
@@ -242,7 +242,7 @@ class ToolsideeAdapter : public SiteAdapter {
     }
 
     SearchResult search(SiteContext &ctx, const SearchQuery &query) override {
-        std::string enc = slimr::url_encode(query.query);
+        std::string enc = shop::sites::urlEncode(query.query);
         for (size_t pos = 0; (pos = enc.find("%20", pos)) != std::string::npos;) {
             enc.replace(pos, 3, "+");
             pos += 1;

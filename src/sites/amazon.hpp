@@ -732,17 +732,8 @@ class AmazonAdapter : public SiteAdapter {
         }
         std::string host = "www.amazon.ie";
         if (ref.url.has_value()) {
-            CURLU *u = curl_url();
-            if (u) {
-                if (curl_url_set(u, CURLUPART_URL, ref.url->c_str(), 0) == CURLUE_OK) {
-                    char *h = nullptr;
-                    curl_url_get(u, CURLUPART_HOST, &h, 0);
-                    if (h) {
-                        host = h;
-                        curl_free(h);
-                    }
-                }
-                curl_url_cleanup(u);
+            if (auto u = parseUrl(*ref.url); u && !u->host.empty()) {
+                host = u->host;
             }
         }
         std::string checkedAt = "2026-10-15T00:00:00Z";

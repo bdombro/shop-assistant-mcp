@@ -20,85 +20,58 @@ inline std::optional<std::string> bingMerchantUrl(std::string_view href) {
     if (!target.starts_with("https://"))
         return std::nullopt;
 
-    CURLU *curlUrl = curl_url();
-    if (!curlUrl)
+    auto parsed = parseUrl(target);
+    if (!parsed || parsed->host.empty())
         return std::nullopt;
+    parsed->fragment.reset();
 
-    if (curl_url_set(curlUrl, CURLUPART_URL, target.c_str(), 0) != CURLUE_OK) {
-        curl_url_cleanup(curlUrl);
-        return std::nullopt;
-    }
-    curl_url_set(curlUrl, CURLUPART_FRAGMENT, nullptr, 0);
-
-    char *hostPtr = nullptr;
-    if (curl_url_get(curlUrl, CURLUPART_HOST, &hostPtr, 0) != CURLUE_OK || !hostPtr) {
-        curl_url_cleanup(curlUrl);
-        return std::nullopt;
-    }
-    std::string host = hostPtr;
-    curl_free(hostPtr);
-
-    std::string hostLower = host;
+    std::string hostLower = parsed->host;
     for (char &c : hostLower)
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 
     if (hostLower == "bing.com" || hostLower.ends_with(".bing.com")) {
-        curl_url_cleanup(curlUrl);
         return std::nullopt;
     }
 
     bool isEbay = (hostLower.find("ebay.") != std::string::npos);
     if (isEbay) {
-        curl_url_set(curlUrl, CURLUPART_QUERY, nullptr, 0);
-    } else {
-        char *queryPtr = nullptr;
-        if (curl_url_get(curlUrl, CURLUPART_QUERY, &queryPtr, 0) == CURLUE_OK && queryPtr) {
-            std::string query = queryPtr;
-            curl_free(queryPtr);
+        parsed->query.reset();
+    } else if (parsed->query.has_value()) {
+        static const std::regex trackingRe(
+            R"(^(utm_|mk|msclkid$|gclid$|gclsrc$|adp$|ac$|country$|chn$|norover$|itemid$|targetid$|device$))",
+            std::regex::icase);
 
-            static const std::regex trackingRe(
-                R"(^(utm_|mk|msclkid$|gclid$|gclsrc$|adp$|ac$|country$|chn$|norover$|itemid$|targetid$|device$))",
-                std::regex::icase);
+        std::vector<std::pair<std::string, std::string>> kept;
+        std::istringstream iss(*parsed->query);
+        std::string param;
+        while (std::getline(iss, param, '&')) {
+            if (param.empty())
+                continue;
+            size_t eq = param.find('=');
+            std::string k = (eq == std::string::npos) ? param : param.substr(0, eq);
+            std::string v = (eq == std::string::npos) ? "" : param.substr(eq + 1);
+            if (!std::regex_search(k, trackingRe)) {
+                kept.emplace_back(std::move(k), std::move(v));
+            }
+        }
 
-            std::vector<std::pair<std::string, std::string>> kept;
-            std::istringstream iss(query);
-            std::string param;
-            while (std::getline(iss, param, '&')) {
-                if (param.empty())
-                    continue;
-                size_t eq = param.find('=');
-                std::string k = (eq == std::string::npos) ? param : param.substr(0, eq);
-                std::string v = (eq == std::string::npos) ? "" : param.substr(eq + 1);
-                if (!std::regex_search(k, trackingRe)) {
-                    kept.emplace_back(std::move(k), std::move(v));
+        if (kept.empty()) {
+            parsed->query.reset();
+        } else {
+            std::string newQuery;
+            for (size_t i = 0; i < kept.size(); ++i) {
+                if (i > 0)
+                    newQuery += "&";
+                newQuery += kept[i].first;
+                if (!kept[i].second.empty()) {
+                    newQuery += "=" + kept[i].second;
                 }
             }
-
-            if (kept.empty()) {
-                curl_url_set(curlUrl, CURLUPART_QUERY, nullptr, 0);
-            } else {
-                std::string newQuery;
-                for (size_t i = 0; i < kept.size(); ++i) {
-                    if (i > 0)
-                        newQuery += "&";
-                    newQuery += kept[i].first;
-                    if (!kept[i].second.empty()) {
-                        newQuery += "=" + kept[i].second;
-                    }
-                }
-                curl_url_set(curlUrl, CURLUPART_QUERY, newQuery.c_str(), 0);
-            }
+            parsed->query = std::move(newQuery);
         }
     }
 
-    char *fullPtr = nullptr;
-    std::string out;
-    if (curl_url_get(curlUrl, CURLUPART_URL, &fullPtr, 0) == CURLUE_OK && fullPtr) {
-        out = fullPtr;
-        curl_free(fullPtr);
-    }
-    curl_url_cleanup(curlUrl);
-
+    std::string out = parsed->toString();
     if (out.empty())
         return std::nullopt;
     return out;

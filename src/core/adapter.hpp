@@ -4,8 +4,7 @@
 #include "dom.hpp"
 #include "json.hpp"
 #include "policy.hpp"
-
-#include <curl/curl.h>
+#include "url.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -370,23 +369,14 @@ inline std::string canonicalUrl(
     std::string_view href,
     std::string_view base,
     const std::vector<std::string> &keep = {}) {
-    CURLU *u = curl_url();
+    auto u = resolveUrl(base, href);
     if (!u)
         return std::string(href);
-    if (curl_url_set(u, CURLUPART_URL, std::string(base).c_str(), 0) != CURLUE_OK ||
-        curl_url_set(u, CURLUPART_URL, std::string(href).c_str(), 0) != CURLUE_OK) {
-        curl_url_cleanup(u);
-        return std::string(href);
-    }
-    curl_url_set(u, CURLUPART_FRAGMENT, nullptr, 0);
+    u->fragment.reset();
 
-    char *query_ptr = nullptr;
-    if (curl_url_get(u, CURLUPART_QUERY, &query_ptr, 0) == CURLUE_OK && query_ptr) {
-        std::string query = query_ptr;
-        curl_free(query_ptr);
-
+    if (u->query.has_value()) {
         std::vector<std::pair<std::string, std::string>> keptParams;
-        std::istringstream iss(query);
+        std::istringstream iss(*u->query);
         std::string param;
         static const std::regex trackingRe(
             R"(^(utm_.*|gclid|gbraid|wbraid|fbclid|msclkid|srsltid|_ga|ref|ref_|al_click|pos_r|sr|qid|crid|sprefix|pd_rd_.*|pf_rd_.*|content-id)$)",
@@ -410,7 +400,7 @@ inline std::string canonicalUrl(
         }
 
         if (keptParams.empty()) {
-            curl_url_set(u, CURLUPART_QUERY, nullptr, 0);
+            u->query.reset();
         } else {
             std::string newQuery;
             for (size_t i = 0; i < keptParams.size(); ++i) {
@@ -421,18 +411,11 @@ inline std::string canonicalUrl(
                     newQuery += "=" + keptParams[i].second;
                 }
             }
-            curl_url_set(u, CURLUPART_QUERY, newQuery.c_str(), 0);
+            u->query = std::move(newQuery);
         }
     }
 
-    char *full = nullptr;
-    std::string result = std::string(href);
-    if (curl_url_get(u, CURLUPART_URL, &full, 0) == CURLUE_OK && full) {
-        result = full;
-        curl_free(full);
-    }
-    curl_url_cleanup(u);
-    return result;
+    return u->toString();
 }
 
 inline void capDetails(Offer &offer) {
@@ -631,26 +614,12 @@ inline std::string homeUrl(const SitePolicy &site) {
         static const std::regex placeholderRe(R"(\{[^}]+\})");
         s = std::regex_replace(s, placeholderRe, "x");
         if (siteForUrl(s, {site}) != nullptr) {
-            CURLU *u = curl_url();
-            if (u) {
-                if (curl_url_set(u, CURLUPART_URL, s.c_str(), 0) == CURLUE_OK) {
-                    char *scheme = nullptr;
-                    char *host = nullptr;
-                    char *port = nullptr;
-                    curl_url_get(u, CURLUPART_SCHEME, &scheme, 0);
-                    curl_url_get(u, CURLUPART_HOST, &host, 0);
-                    curl_url_get(u, CURLUPART_PORT, &port, 0);
-                    std::string origin = (scheme ? scheme : "https") + std::string("://") + (host ? host : "");
-                    if (port)
-                        origin += ":" + std::string(port);
-                    origin += "/";
-                    curl_free(scheme);
-                    curl_free(host);
-                    curl_free(port);
-                    curl_url_cleanup(u);
-                    return origin;
-                }
-                curl_url_cleanup(u);
+            if (auto u = parseUrl(s)) {
+                std::string origin = u->scheme + "://" + u->host;
+                if (!u->port.empty())
+                    origin += ":" + u->port;
+                origin += "/";
+                return origin;
             }
         }
     }
@@ -670,20 +639,8 @@ inline std::string blockedPostsHint(Store &store, int64_t pageId, int64_t sinceM
     for (const auto &g : events) {
         if (g.outcome == "blocked" && g.method != "GET" && !std::regex_search(g.url, noiseHost)) {
             std::string formatted = g.url;
-            CURLU *u = curl_url();
-            if (u) {
-                if (curl_url_set(u, CURLUPART_URL, g.url.c_str(), 0) == CURLUE_OK) {
-                    char *host = nullptr;
-                    char *path = nullptr;
-                    curl_url_get(u, CURLUPART_HOST, &host, 0);
-                    curl_url_get(u, CURLUPART_PATH, &path, 0);
-                    if (host && path) {
-                        formatted = std::string(host) + std::string(path);
-                    }
-                    curl_free(host);
-                    curl_free(path);
-                }
-                curl_url_cleanup(u);
+            if (auto u = parseUrl(g.url)) {
+                formatted = u->host + (u->path.empty() ? "/" : u->path);
             }
             if (std::find(urls.begin(), urls.end(), formatted) == urls.end()) {
                 urls.push_back(std::move(formatted));

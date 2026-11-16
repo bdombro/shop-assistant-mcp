@@ -2,8 +2,8 @@
 
 #include "core/adapter.hpp"
 #include "core/dom.hpp"
-#include "curl.hpp"
 #include "json.hpp"
+#include "sites/site_helpers.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -464,7 +464,7 @@ class VeryAdapter : public SiteAdapter {
 
     SearchResult search(SiteContext &ctx, const SearchQuery &query) override {
         std::string trimmed = text(query.query);
-        std::string url = very_internal::BASE + "e/q/" + slimr::url_encode(trimmed) + ".end";
+        std::string url = very_internal::BASE + "e/q/" + shop::sites::urlEncode(trimmed) + ".end";
         std::string html = ctx.fetchText(url);
         return parseVerySearch(html, "");
     }
@@ -473,7 +473,7 @@ class VeryAdapter : public SiteAdapter {
         (void)options;
         std::string url = ref.url ? canonicalUrl(*ref.url, very_internal::BASE) : "";
         if (url.empty() && ref.id) {
-            url = very_internal::BASE + "p/" + slimr::url_encode(*ref.id) + ".prd";
+            url = very_internal::BASE + "p/" + shop::sites::urlEncode(*ref.id) + ".prd";
         }
         if (url.empty()) {
             throw std::runtime_error("very: give an id or url");
@@ -502,10 +502,10 @@ class VeryAdapter : public SiteAdapter {
                           "?resource=reviews&action=REVIEWS_N_STATS&filteredstats=reviews&Stats=Reviews"
                           "&limit=" +
                           std::to_string(limit) +
-                          "&offset=0&sort=" + slimr::url_encode(sortParam) +
+                          "&offset=0&sort=" + shop::sites::urlEncode(sortParam) +
                           "&apiversion=5.5&displaycode=19737-en_ie"
                           "&filter=productid%3Aeq%3A" +
-                          slimr::url_encode(id) +
+                          shop::sites::urlEncode(id) +
                           "&filter=contentlocale%3Aeq%3Aen_GB%2Cen_IE"
                           "&filter=isratingsonly%3Aeq%3Afalse";
 

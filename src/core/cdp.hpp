@@ -1,8 +1,8 @@
 #pragma once
 
-#include "curl.hpp"
 #include "json.hpp"
-#include "ws.hpp"
+
+#include <httplib.h>
 
 #include <chrono>
 #include <functional>
@@ -223,27 +223,33 @@ class CdpClient : public CdpClientInterface {
     CdpClient() = default;
 
     static std::unique_ptr<CdpClient> connect(int port, long timeoutMs = 5000) {
-        std::string url = "http://127.0.0.1:" + std::to_string(port) + "/json/version";
-        slimr::HttpRequest req;
-        req.url = url;
-        req.timeoutMs = timeoutMs;
-        slimr::HttpResponse resp;
-        try {
-            resp = slimr::request(req);
-        } catch (...) {
+        httplib::Client cli("127.0.0.1", port);
+        cli.set_connection_timeout(std::chrono::milliseconds(timeoutMs));
+        cli.set_read_timeout(std::chrono::milliseconds(timeoutMs));
+        cli.set_write_timeout(std::chrono::milliseconds(timeoutMs));
+        auto resp = cli.Get("/json/version");
+        if (!resp || resp->status != 200) {
             throw std::runtime_error(braveUnreachable(port));
         }
-        if (resp.status != 200) {
-            throw std::runtime_error(braveUnreachable(port));
-        }
-        auto parsed = slimr::parse_json<slimr::Json>(resp.body);
+        auto parsed = slimr::parse_json<slimr::Json>(resp->body);
         if (!parsed || !parsed->is_object() || !parsed->contains("webSocketDebuggerUrl")) {
             throw std::runtime_error(braveUnreachable(port));
         }
         std::string wsUrl = (*parsed)["webSocketDebuggerUrl"].get<std::string>();
 
         auto client = std::make_unique<CdpClient>();
-        if (!client->ws_.connect(wsUrl, {}, timeoutMs)) {
+        try {
+            client->ws_ = std::make_unique<httplib::ws::WebSocketClient>(wsUrl);
+        } catch (const std::invalid_argument &) {
+            throw std::runtime_error(braveUnreachable(port));
+        }
+        if (!client->ws_ || !client->ws_->is_valid()) {
+            throw std::runtime_error(braveUnreachable(port));
+        }
+        client->ws_->set_connection_timeout(std::chrono::milliseconds(timeoutMs));
+        client->ws_->set_read_timeout(std::chrono::milliseconds(500));
+        client->ws_->set_write_timeout(std::chrono::milliseconds(timeoutMs));
+        if (!client->ws_->connect()) {
             throw std::runtime_error(braveUnreachable(port));
         }
         client->is_open_ = true;
@@ -271,7 +277,7 @@ class CdpClient : public CdpClientInterface {
             req["sessionId"] = std::string(*sessionId);
         }
 
-        if (!ws_.sendJson(slimr::Json(std::move(req)))) {
+        if (!ws_ || !ws_->send(slimr::to_json(slimr::Json(std::move(req))))) {
             shutdown();
             throw std::runtime_error(CDP_CLOSED);
         }
@@ -285,12 +291,17 @@ class CdpClient : public CdpClientInterface {
                 throw std::runtime_error("CDP " + std::string(method) + " got no answer within 30s");
             }
 
-            auto msg = ws_.recvJson(500);
+            std::string raw;
+            auto rr = ws_->read(raw);
+            if (rr == httplib::ws::ReadResult::Timeout) {
+                continue;
+            }
+            if (rr == httplib::ws::ReadResult::Fail) {
+                shutdown();
+                throw std::runtime_error(CDP_CLOSED);
+            }
+            auto msg = slimr::parse_json<slimr::Json>(raw);
             if (!msg) {
-                if (!ws_.isConnected()) {
-                    shutdown();
-                    throw std::runtime_error(CDP_CLOSED);
-                }
                 continue;
             }
 
@@ -366,7 +377,7 @@ class CdpClient : public CdpClientInterface {
   private:
     mutable std::recursive_mutex io_mu_;
     mutable std::mutex state_mu_;
-    slimr::WebSocket ws_;
+    std::unique_ptr<httplib::ws::WebSocketClient> ws_;
     int64_t seq_ = 0;
     size_t listener_seq_ = 0;
     bool is_open_ = false;
@@ -379,7 +390,7 @@ class CdpClient : public CdpClientInterface {
     }
 
     bool isOpenLocked() const noexcept {
-        return isOpenFlag() && ws_.isConnected();
+        return isOpenFlag() && ws_ && ws_->is_open();
     }
 
     void dispatchListeners(const CdpEvent &ev) {
@@ -403,7 +414,9 @@ class CdpClient : public CdpClientInterface {
             closeCopy = std::move(close_listeners_);
             close_listeners_.clear();
         }
-        ws_.close();
+        if (ws_) {
+            ws_->close();
+        }
         for (const auto &l : closeCopy) {
             l();
         }

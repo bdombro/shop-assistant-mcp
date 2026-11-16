@@ -51,7 +51,8 @@ plugins/shop-assistant-mcp/
 │   │   ├── markdown.hpp      # HTML sanitizer & Markdown renderer (`cleanHtml`, `pageView`, `splitSections`)
 │   │   ├── policy.hpp        # URL/mutation guard policy (`parseSiteDoc` via `yaml.hpp`, `decide`)
 │   │   ├── db.hpp            # SQLite `Store` (`shop.db`: page cache, guard event log, site health checks)
-│   │   ├── cdp.hpp           # Chrome DevTools Protocol client over `ws.hpp` & `curl.hpp`
+│   │   ├── cdp.hpp           # Chrome DevTools Protocol client over `cpp-httplib`
+│   │   ├── url.hpp           # RFC 3986 URL parser and relative resolver
 │   │   ├── adapter.hpp       # `Offer`, `ProductPage`, `Review`, `SiteAdapter`, price/stock parsers, `AdapterRegistry`
 │   │   └── pages.hpp         # Page settlement & anti-bot challenge detection (`isChallenge`)
 │   ├── sites/
@@ -71,7 +72,7 @@ plugins/shop-assistant-mcp/
 
 - **`lexbor`:** vcpkg-managed static C HTML5 parser and CSS selector engine wrapped in `src/core/dom.hpp`.
 - **`<mcp.hpp>`, `<mcp_http.hpp>` & `<reflect.hpp>`:** Typed MCP tool definitions, compile-time JSON Schema generation, native MCP image blocks (`screenshot`), HTTP (`2026-07-28`), and narrow JSON CLI.
-- **`<ws.hpp>` & `<curl.hpp>` (`-lcurl`):** CDP WebSocket connection and HTTP target discovery against Brave (`127.0.0.1:9222`) + Shopify UCP catalog fetches.
+- **`cpp-httplib` (`<httplib.h>`):** CDP WebSocket connection and HTTP target discovery against Brave (`127.0.0.1:9222`).
 - **`<sqlite.hpp>` (`-lsqlite3`):** Page cache, site health tracking, and guard audit logging in `$(brew --prefix)/var/shop-assistant-mcp/shop.db`.
 - **`<yaml.hpp>` (`rapidyaml`):** Parsing `sites/<site>.md` YAML policy frontmatter (`parse_frontmatter`).
 - **`<json.hpp>` (`glaze`):** JSON-LD (`@type: Product`) and CDP message parsing.
@@ -185,7 +186,7 @@ original code and synthetic fixtures, not third-party site content or dependenci
 
 Build on macOS with `llvm@23` (`clang++` with `-stdlib=libc++` and static `libc++.a` + `libc++abi.a`, `LLVM_BIN`), C++26, libc++ FAST hardening, CMake 3.31+, Ninja, [just](https://just.systems), [vcpkg](https://vcpkg.io), and Bun. Set `VCPKG_ROOT` to a bootstrapped checkout and put `vcpkg` on `PATH`.
 
-`just configure`, `test`, `build`, and `lint` automatically run `deps`, installing manifest dependencies under `build/deps/`. CMake uses installed `slimr::mcp_http`, `slimr::sqlite`, `slimr::yaml`, `slimr::ws`, and `lexbor::lexbor_static` targets, preserving static SQLite/FTS5 and Lexbor linkage; manifest auto-install is disabled.
+`just configure`, `test`, `build`, and `lint` automatically run `deps`, installing manifest dependencies under `build/deps/`. CMake uses installed `slimr::mcp_http`, `slimr::sqlite`, `slimr::yaml`, and `lexbor::lexbor_static` targets, preserving static SQLite/FTS5 and Lexbor linkage; manifest auto-install is disabled.
 
 Debug sanitizers and Release IPO builds have separate `build/cmake/Debug/` and `build/cmake/Release/` graphs. Both enable libc++ hardening and zero automatic-variable initialization; Debug adds ASan and fatal UBSan. Set `CXX` before the first configure to override the default `llvm@23` compiler; subsequent configures preserve CMake's cached compiler. CTest runs offline fixtures from the repository root with `SHOP_ASSISTANT_DIALOGS=off`, a finite timeout, and isolated repo-local HOME/XDG/temporary directories.
 

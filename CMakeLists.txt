@@ -22,7 +22,6 @@ option(ENABLE_SANITIZERS "Enable address and undefined behavior sanitizers" OFF)
 find_package(slimr-mcp CONFIG REQUIRED)
 find_package(slimr-sqlite CONFIG REQUIRED)
 find_package(slimr-yaml CONFIG REQUIRED)
-find_package(slimr-ws CONFIG REQUIRED)
 find_package(lexbor CONFIG REQUIRED)
 
 add_library(app_options INTERFACE)
@@ -80,7 +79,7 @@ endif()
 add_executable(shop-assistant-mcp src/main.cpp)
 target_include_directories(shop-assistant-mcp PRIVATE src)
 target_link_libraries(shop-assistant-mcp PRIVATE
-    slimr::mcp slimr::mcp_http slimr::sqlite slimr::yaml slimr::ws lexbor::lexbor_static app_options)
+    slimr::mcp slimr::mcp_http slimr::sqlite slimr::yaml lexbor::lexbor_static app_options)
 set_target_properties(shop-assistant-mcp PROPERTIES
     INTERPROCEDURAL_OPTIMIZATION_RELEASE ON
     RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/build/bin")
@@ -90,7 +89,7 @@ if(BUILD_TESTING)
     add_executable(shop_assistant_test tests/test_main.cpp)
     target_include_directories(shop_assistant_test PRIVATE src tests)
     target_link_libraries(shop_assistant_test PRIVATE
-        slimr::mcp slimr::mcp_http slimr::sqlite slimr::yaml slimr::ws lexbor::lexbor_static slimr::test app_options)
+        slimr::mcp slimr::mcp_http slimr::sqlite slimr::yaml lexbor::lexbor_static slimr::test app_options)
     set_target_properties(shop_assistant_test PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
     add_test(NAME shop_assistant COMMAND shop_assistant_test)
     file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/test-tmp" "${CMAKE_BINARY_DIR}/test-home")

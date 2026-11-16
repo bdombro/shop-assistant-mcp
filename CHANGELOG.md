@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Internal: migrate HTTP/WebSocket client and URL parser to cpp-httplib and RFC 3986 parser
 - Internal: switch macOS builds to `llvm@23` and static `libc++`
 
 ## v2.1.0 - 2026-11-16

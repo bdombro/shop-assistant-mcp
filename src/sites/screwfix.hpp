@@ -2,8 +2,8 @@
 
 #include "core/adapter.hpp"
 #include "core/dom.hpp"
-#include "curl.hpp"
 #include "json.hpp"
+#include "sites/site_helpers.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -501,7 +501,7 @@ class ScrewfixAdapter : public SiteAdapter {
     }
 
     SearchResult search(SiteContext &ctx, const SearchQuery &query) override {
-        std::string enc = slimr::url_encode(query.query);
+        std::string enc = shop::sites::urlEncode(query.query);
         for (size_t pos = 0; (pos = enc.find("%20", pos)) != std::string::npos;) {
             enc.replace(pos, 3, "+");
             pos += 1;
@@ -551,10 +551,10 @@ class ScrewfixAdapter : public SiteAdapter {
                           "?resource=reviews&action=REVIEWS_N_STATS&filteredstats=reviews&Stats=Reviews"
                           "&limit=" +
                           std::to_string(limit) +
-                          "&offset=0&sort=" + slimr::url_encode(sortParam) +
+                          "&offset=0&sort=" + shop::sites::urlEncode(sortParam) +
                           "&apiversion=5.5&displaycode=22465-en_ie"
                           "&filter=productid%3Aeq%3A" +
-                          slimr::url_encode(idUpper) +
+                          shop::sites::urlEncode(idUpper) +
                           "&filter=contentlocale%3Aeq%3Aen_GB%2Cen_IE"
                           "&filter=isratingsonly%3Aeq%3Afalse";
 
@@ -581,7 +581,7 @@ class ScrewfixAdapter : public SiteAdapter {
         out.reserve(offers.size());
         for (auto offer : offers) {
             std::string url = screwfix_internal::BASE + "prod/ffx-browse-bff/v1/SFXIE/stock/search?productId=" +
-                              slimr::url_encode(offer.id) +
+                              shop::sites::urlEncode(offer.id) +
                               "&lat=" + std::to_string(near.lat) +
                               "&long=" + std::to_string(near.lon) +
                               "&quantity=1";
@@ -589,7 +589,7 @@ class ScrewfixAdapter : public SiteAdapter {
             FetchInit init;
             init.headers["authorization"] = token;
             init.headers["content-type"] = "application/json";
-            init.referrer = screwfix_internal::BASE + "checkstock?product_id=" + slimr::url_encode(offer.id) + "&quantity=1";
+            init.referrer = screwfix_internal::BASE + "checkstock?product_id=" + shop::sites::urlEncode(offer.id) + "&quantity=1";
 
             slimr::Json json = ctx.fetchJson(url, init);
             offer.pickup = parseScrewfixStock(json, offer.id, near.radiusKm);

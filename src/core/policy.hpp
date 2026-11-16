@@ -1,9 +1,8 @@
 #pragma once
 
 #include "json.hpp"
+#include "url.hpp"
 #include "yaml.hpp"
-
-#include <curl/curl.h>
 
 #include <algorithm>
 #include <cctype>
@@ -158,19 +157,10 @@ const std::string UNTRUSTED_CONTENT_WARNING =
 const std::string WITHHELD_NOTICE = "[withheld: possible prompt injection]";
 
 inline std::string hostOf(std::string_view url_str) {
-    CURLU *u = curl_url();
+    auto u = parseUrl(url_str);
     if (!u)
         return "";
-    if (curl_url_set(u, CURLUPART_URL, std::string(url_str).c_str(), 0) != CURLUE_OK) {
-        curl_url_cleanup(u);
-        return "";
-    }
-    char *host_ptr = nullptr;
-    curl_url_get(u, CURLUPART_HOST, &host_ptr, 0);
-    std::string host = host_ptr ? host_ptr : "";
-    curl_free(host_ptr);
-    curl_url_cleanup(u);
-
+    std::string host = std::move(u->host);
     while (!host.empty() && host.back() == '.')
         host.pop_back();
     for (char &c : host)
@@ -202,28 +192,13 @@ inline const SitePolicy *siteForUrl(std::string_view url, const std::vector<Site
 }
 
 inline bool urlMatches(std::string_view url_str, std::string_view pattern) {
-    CURLU *u = curl_url();
+    auto u = parseUrl(url_str);
     if (!u)
         return false;
-    if (curl_url_set(u, CURLUPART_URL, std::string(url_str).c_str(), 0) != CURLUE_OK) {
-        curl_url_cleanup(u);
-        return false;
-    }
-    char *host_ptr = nullptr;
-    char *path_ptr = nullptr;
-    char *query_ptr = nullptr;
-    curl_url_get(u, CURLUPART_HOST, &host_ptr, 0);
-    curl_url_get(u, CURLUPART_PATH, &path_ptr, 0);
-    curl_url_get(u, CURLUPART_QUERY, &query_ptr, 0);
 
-    std::string host = host_ptr ? host_ptr : "";
-    std::string path = path_ptr ? path_ptr : "/";
-    std::string query = query_ptr ? ("?" + std::string(query_ptr)) : "";
-
-    curl_free(host_ptr);
-    curl_free(path_ptr);
-    curl_free(query_ptr);
-    curl_url_cleanup(u);
+    std::string host = std::move(u->host);
+    std::string path = u->path.empty() ? "/" : std::move(u->path);
+    std::string query = u->query.has_value() ? ("?" + *u->query) : "";
 
     for (char &c : path)
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -556,14 +531,8 @@ inline GuardDecision decide(
         return GuardDecision{"continue", "non-network scheme", false};
     }
 
-    CURLU *u = curl_url();
-    if (!u)
+    if (!parseUrl(url))
         return GuardDecision{"fail", "unparseable URL", false};
-    if (curl_url_set(u, CURLUPART_URL, url.c_str(), 0) != CURLUE_OK) {
-        curl_url_cleanup(u);
-        return GuardDecision{"fail", "unparseable URL", false};
-    }
-    curl_url_cleanup(u);
 
     const SitePolicy *site = siteForUrl(url, sites);
     for (const auto &pattern : FORBIDDEN) {

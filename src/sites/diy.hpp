@@ -165,7 +165,7 @@ class DiyAdapter : public core::SiteAdapter {
   public:
     std::string id() const override { return "diy"; }
     core::SearchResult search(core::SiteContext &ctx, const core::SearchQuery &q) override {
-        std::string url = DIY_BASE + "search?term=" + slimr::url_encode(q.query);
+        std::string url = DIY_BASE + "search?term=" + shop::sites::urlEncode(q.query);
         std::string html = ctx.fetchText(url);
         return parseDiySearch(html, "2026-11-10T00:00:00Z");
     }

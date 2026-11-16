@@ -2,7 +2,7 @@
 
 #include "core/adapter.hpp"
 #include "core/dom.hpp"
-#include "curl.hpp"
+#include "sites/site_helpers.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -332,7 +332,7 @@ class PowercityAdapter : public SiteAdapter {
     }
 
     SearchResult search(SiteContext &ctx, const SearchQuery &query) override {
-        std::string url = powercity_internal::BASE + "groups/groups/search?search=" + slimr::url_encode(query.query);
+        std::string url = powercity_internal::BASE + "groups/groups/search?search=" + shop::sites::urlEncode(query.query);
         FetchInit init;
         init.document = true;
         std::string html = ctx.fetchText(url, init);
@@ -352,7 +352,7 @@ class PowercityAdapter : public SiteAdapter {
         if (id.empty()) {
             throw std::runtime_error("powercity: give an id or a product URL");
         }
-        std::string html = ctx.fetchText(powercity_internal::BASE + "product/" + slimr::url_encode(id));
+        std::string html = ctx.fetchText(powercity_internal::BASE + "product/" + shop::sites::urlEncode(id));
         auto o = parsePowercityProduct(html, "");
         if (!o) {
             throw std::runtime_error("powercity: no product " + id);
@@ -366,7 +366,7 @@ class PowercityAdapter : public SiteAdapter {
         for (auto offer : offers) {
             FetchInit init;
             init.headers["x-requested-with"] = "XMLHttpRequest";
-            std::string html = ctx.fetchText(powercity_internal::BASE + "product/stock-levels?id=" + slimr::url_encode(offer.id), init);
+            std::string html = ctx.fetchText(powercity_internal::BASE + "product/stock-levels?id=" + shop::sites::urlEncode(offer.id), init);
             offer.pickup = parsePowercityStock(html, near);
             out.push_back(std::move(offer));
         }

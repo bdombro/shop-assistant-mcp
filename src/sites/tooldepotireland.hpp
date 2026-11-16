@@ -2,8 +2,8 @@
 
 #include "core/adapter.hpp"
 #include "core/dom.hpp"
-#include "curl.hpp"
 #include "json.hpp"
+#include "sites/site_helpers.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -295,7 +295,7 @@ class ToolDepotIrelandAdapter : public SiteAdapter {
     SearchResult search(SiteContext &ctx, const SearchQuery &query) override {
         int perPage = std::min(query.limit * 2, 40);
         std::string url = tooldepotireland_internal::API +
-                          "?search=" + slimr::url_encode(query.query) +
+                          "?search=" + shop::sites::urlEncode(query.query) +
                           "&per_page=" + std::to_string(perPage);
         slimr::Json json = ctx.fetchJson(url);
         return parseTooldepotirelandSearch(json, "");
@@ -318,9 +318,9 @@ class ToolDepotIrelandAdapter : public SiteAdapter {
 
         slimr::Json row;
         if (!id.empty()) {
-            row = ctx.fetchJson(tooldepotireland_internal::API + "/" + slimr::url_encode(id));
+            row = ctx.fetchJson(tooldepotireland_internal::API + "/" + shop::sites::urlEncode(id));
         } else {
-            auto arr = ctx.fetchJson(tooldepotireland_internal::API + "?slug=" + slimr::url_encode(slug));
+            auto arr = ctx.fetchJson(tooldepotireland_internal::API + "?slug=" + shop::sites::urlEncode(slug));
             if (arr.is_array() && !arr.get<slimr::Json::array_t>().empty()) {
                 row = arr.get<slimr::Json::array_t>()[0];
             }
@@ -337,7 +337,7 @@ class ToolDepotIrelandAdapter : public SiteAdapter {
         std::vector<Offer> out;
         out.reserve(offers.size());
         for (auto offer : offers) {
-            slimr::Json row = ctx.fetchJson(tooldepotireland_internal::API + "/" + slimr::url_encode(offer.id));
+            slimr::Json row = ctx.fetchJson(tooldepotireland_internal::API + "/" + shop::sites::urlEncode(offer.id));
             offer.pickup = parseTooldepotirelandStock(row, near);
             out.push_back(std::move(offer));
         }
