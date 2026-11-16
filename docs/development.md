@@ -5,29 +5,38 @@ User installation, configuration and compatibility status are in the
 alternative transport schemas and validation commands. A client configuration
 example is not a claim of verified July/OAuth interoperability.
 
-Current HTTP source builds use local slimr and libhv overlays. The pinned
-published registry baseline predates these HTTP changes; do not claim that
-baseline builds the current HTTP app without overrides. CI configuration is
-not evidence that a runner/platform/client has passed.
+Dependencies resolve directly from the pinned `bdombro/slimr-*` vcpkg git
+registries in `vcpkg-configuration.json` (no local overlays). CI configuration
+is not evidence that a runner/platform/client has passed.
 
 ## App Architecture
 
-The standalone MCP and JSON CLI use `slimr-cpp` and the vcpkg-managed `lexbor` HTML parser and CSS selector engine.
+The standalone MCP and JSON CLI use `slimr-*` and the vcpkg-managed `lexbor` HTML parser and CSS selector engine.
 
 ```text
 plugins/shop-assistant-mcp/
-├── vcpkg.json                # Package dependencies installed under build/deps/
+├── VERSION                   # Compiled into binary via CMakeLists.txt
+├── CHANGELOG.md              # Release notes (## Unreleased)
+├── vcpkg.json                # Independently resolved dependencies (slimr-mcp[http], lexbor)
+├── vcpkg-configuration.json  # Pinned vcpkg builtin and slimr-* git registries
 ├── CMakeLists.txt            # App/test targets, imported dependencies, safety settings
-├── justfile                  # CMake/Ninja configure, test, build, lint, test-mcp
+├── justfile                  # CMake/Ninja, doctor, fmt, lint, test-mcp, release, and brew service lifecycle
 ├── README.md                 # User & operator documentation
 ├── AGENTS.md                 # Maintainer & AI agent conventions
 ├── agents/
 │   └── site-reader.md        # Subagent definition shipped with the plugin (standalone tool names)
 ├── Formula/
-│   └── shop-assistant-mcp.rb # Homebrew formula + LaunchAgent service (with docs & sites pkgshare)
+│   └── shop-assistant-mcp.rb # Homebrew formula (macOS) + LaunchAgent service (with docs & sites pkgshare)
+├── .github/
+│   ├── actions/setup/action.yml    # Toolchain & vcpkg bootstrap + binary cache
+│   └── workflows/{test,release}.yml # PR/manual test workflow and tag/formula release workflow
 ├── scripts/
-│   ├── homebrew.mjs          # Local formula staging & brew services lifecycle
-│   └── test-mcp.mjs          # Stdio + ephemeral HTTP (`2026-07-28`) smoke check
+│   ├── doctor.sh             # Tooling, C++26, LLVM_BIN, VCPKG_ROOT checks
+│   ├── test-mcp.ts           # Bun stdio + ephemeral HTTP (`2026-07-28`) smoke check
+│   ├── release.ts            # Release version bump, changelog promotion, commit/tag/gh-release
+│   └── formula-shared.ts     # Formula/changelog parsing and SHA-256 helpers
+├── .clang-format / .clang-tidy     # Formatting and static-analysis config (llvm@23)
+├── .clangd / .vscode/settings.json # Editor compilation database (build/cmake/Debug)
 ├── .cursor-plugin/
 │   └── plugin.json           # Cursor plugin manifest -> http://127.0.0.1:10005/mcp
 ├── .claude-plugin/
@@ -63,25 +72,33 @@ plugins/shop-assistant-mcp/
 - **`lexbor`:** vcpkg-managed static C HTML5 parser and CSS selector engine wrapped in `src/core/dom.hpp`.
 - **`<mcp.hpp>`, `<mcp_http.hpp>` & `<reflect.hpp>`:** Typed MCP tool definitions, compile-time JSON Schema generation, native MCP image blocks (`screenshot`), HTTP (`2026-07-28`), and narrow JSON CLI.
 - **`<ws.hpp>` & `<curl.hpp>` (`-lcurl`):** CDP WebSocket connection and HTTP target discovery against Brave (`127.0.0.1:9222`) + Shopify UCP catalog fetches.
-- **`<sqlite.hpp>` (`-lsqlite3`):** Page cache, site health tracking, and guard audit logging in `~/.local/state/shop-assistant/shop.db`.
+- **`<sqlite.hpp>` (`-lsqlite3`):** Page cache, site health tracking, and guard audit logging in `$(brew --prefix)/var/shop-assistant-mcp/shop.db`.
 - **`<yaml.hpp>` (`rapidyaml`):** Parsing `sites/<site>.md` YAML policy frontmatter (`parse_frontmatter`).
 - **`<json.hpp>` (`glaze`):** JSON-LD (`@type: Product`) and CDP message parsing.
-- **`<bugsink.hpp>` (`-lcurl`):** Optional error reporting, enabled only by `BUGSINK_DSN`.
+- **`<bugsink.hpp>` (`-lcurl`):** Optional error reporting, enabled only by `BUGSINK_DSN` and tagged with `shop-assistant-mcp@<VERSION>`.
 - **`<test.hpp>` (`doctest`):** Offline HTML/JSON-LD fixture test suite compiled with `-fsanitize=address,undefined`.
 
 ## HTTP & Client Configuration (MCP `2026-07-28`)
 
-`shop-assistant-mcp` defaults to HTTP-first Streamable HTTP on `http://127.0.0.1:10005/mcp` (`shop-assistant-mcp http`) while preserving stdio (`shop-assistant-mcp mcp`) and direct JSON CLI invocation (`shop-assistant-mcp <tool> ['{...}']`).
+`shop-assistant-mcp` defaults to Streamable HTTP on `0.0.0.0:10005/mcp` (`shop-assistant-mcp http`) while preserving stdio (`shop-assistant-mcp mcp`) and direct JSON CLI invocation (`shop-assistant-mcp <tool> ['{...}']`).
 
-> **Breaking change (MCP `2026-07-28`):** Legacy `initialize` / `notifications/initialized` session handshakes are replaced by stateless `server/discover` with `MCP-Protocol-Version: 2026-07-28` and `Mcp-Method` headers (legacy `initialize` returns `-32601`). Non-loopback bindings require `--allow-non-loopback`, and `--port 0` requires `--allow-ephemeral-port`.
+> **Breaking change (MCP `2026-07-28`):** Legacy `initialize` / `notifications/initialized` session handshakes are replaced by stateless `server/discover` with `MCP-Protocol-Version: 2026-07-28` and `Mcp-Method` headers (legacy `initialize` returns `-32601`).
+
+### Direct-Binary Dev Loop (`http://127.0.0.1:20005/mcp`)
+
+```bash
+just build
+./build/bin/shop-assistant-mcp http --port 20005
+```
 
 ### Homebrew Service (`http://127.0.0.1:10005/mcp`)
 
 ```bash
-just install-local   # Local source-build installation; the release formula is not finalized
-just start           # starts LaunchAgent service on 127.0.0.1:10005 and verifies server/discover
-just status          # checks brew services info + HTTP server/discover
-just stop            # stops LaunchAgent service
+just install         # taps GitHub repo, installs released formula, runs brew test, starts service
+just daemon-start    # starts LaunchAgent service and verifies server/discover
+just daemon-status   # checks brew services info + HTTP server/discover
+just daemon-stop     # stops LaunchAgent service
+just daemon-logs     # tails $(brew --prefix)/var/log/shop-assistant-mcp.log
 ```
 
 ### Client Config Spellings
@@ -156,7 +173,7 @@ just stop            # stops LaunchAgent service
   - Connects to Brave (`--remote-debugging-port=9222`) over WebSockets and only touches tabs opened by `shop-assistant` (never inspecting your personal tabs).
   - Intercepts requests via CDP `Fetch`: checkout, payment, login, and account URLs (`PageKind::Blocked`) are unconditionally blocked.
   - Every mutating browser action (`click`, `fill`, `fill-form`, `press-key` triggering a write) requires explicit confirmation in a native macOS dialog (`write: ask`), and background page beacons/prefetches are blocked silently without prompting.
-- **SQLite Page Cache & Guard Log (`src/core/db.hpp`):** Caches fetched pages and records site health checks and guard decisions in `~/.local/state/shop-assistant/shop.db`.
+- **SQLite Page Cache & Guard Log (`src/core/db.hpp`):** Caches fetched pages and records site health checks and guard decisions in `$(brew --prefix)/var/shop-assistant-mcp/shop.db`.
 
 ## Building & Testing
 
@@ -166,22 +183,19 @@ they do not establish full live-site compatibility. Unused captured HTML/JSON, r
 and matching datasets are intentionally not distributed. The ISC license covers the
 original code and synthetic fixtures, not third-party site content or dependencies.
 
-Build with Clang/C++26 and libc++ FAST hardening, CMake 3.31+, Ninja, [just](https://just.systems), [vcpkg](https://vcpkg.io), and a compatible clang-tidy. Set `VCPKG_ROOT` to a bootstrapped checkout and put `vcpkg` on `PATH`; configure the local overlay explicitly:
+Build on macOS with Apple Clang (`/usr/bin/clang++`), C++26, libc++ FAST hardening, CMake 3.31+, Ninja, [just](https://just.systems), [vcpkg](https://vcpkg.io), Bun, and `llvm@23` (`LLVM_BIN`) for clang-format and clang-tidy. Set `VCPKG_ROOT` to a bootstrapped checkout and put `vcpkg` on `PATH`.
+
+`just configure`, `test`, `build`, and `lint` automatically run `deps`, installing manifest dependencies under `build/deps/`. CMake uses installed `slimr::mcp_http`, `slimr::sqlite`, `slimr::yaml`, `slimr::ws`, and `lexbor::lexbor_static` targets, preserving static SQLite/FTS5 and Lexbor linkage; manifest auto-install is disabled.
+
+Debug sanitizers and Release IPO builds have separate `build/cmake/Debug/` and `build/cmake/Release/` graphs. Both enable libc++ hardening and zero automatic-variable initialization; Debug adds ASan and fatal UBSan. Set `CXX` before the first configure to override the default Apple compiler on macOS; subsequent configures preserve CMake's cached compiler. CTest runs offline fixtures from the repository root with `SHOP_ASSISTANT_DIALOGS=off`, a finite timeout, and isolated repo-local HOME/XDG/temporary directories.
 
 ```bash
-export VCPKG_OVERLAY_PORTS="$VCPKG_ROOT/local-ports"
-```
-
-`just configure`, `test`, `build`, and `lint` automatically run `deps`, installing manifest dependencies under `build/deps/`. CMake uses installed `slimr::mcp_http`, `slimr::sqlite`, `slimr::yaml`, `slimr::ws`, and `lexbor::lexbor_static` targets, preserving static SQLite/FTS5 and Lexbor linkage; manifest auto-install is disabled. Local overlay ports must already be registered; no source-checkout include overrides or global executable installs are used. Registry publication is separate.
-
-Debug sanitizers and Release IPO builds have separate `build/cmake/Debug/` and `build/cmake/Release/` graphs. Both enable libc++ hardening and zero automatic-variable initialization; Debug adds ASan and fatal UBSan. Set `CXX` before the first configure to override the default Apple compiler on macOS or `clang++` on Linux; subsequent configures preserve CMake's cached compiler even when clang-tidy is added to `PATH`. CTest runs offline fixtures from the repository root with `SHOP_ASSISTANT_DIALOGS=off`, a finite timeout, and isolated repo-local HOME/XDG/temporary directories. Release builds run those tests too.
-
-```bash
+just doctor   # Verify required tools, C++26 compiler, LLVM_BIN, and VCPKG_ROOT
 just test     # Run core, site-parser, CLI, HTTP, and thread-safety tests with ASan + UBSan
-just build    # Build/test Release binary at build/bin/shop-assistant-mcp
-just lint     # Analyze app and test translation units using compile_commands.json (supports CLANG_TIDY)
-just test-mcp # Verify stdio (mcp) and ephemeral HTTP (http --port 0 --allow-ephemeral-port) against MCP 2026-07-28
-just run --help # Run the existing Release binary without rebuilding
+just build    # Build Release binary at build/bin/shop-assistant-mcp
+just lint     # Check formatting and analyze src/main.cpp using compile_commands.json
+just test-mcp # Verify stdio (mcp) and ephemeral HTTP (http --port 0) against MCP 2026-07-28
+just release patch # Trigger release.yml, watch completion, and pull the release commit
 ```
 
-`just test` and `just test-mcp` run the server with an isolated HOME/XDG environment, no external CLI PATH or credentials, `SHOP_ASSISTANT_DIALOGS=off`, and Bugsink disabled; they never open browser tabs or invoke external retail sites. Linux/macOS PR CI is configured for the same commands and requires the tested full `VCPKG_REF` commit variable. Current July HTTP builds require matching local slimr/libhv overlays until a corresponding registry release is published. Linux execution and remote merge-gate enforcement are not claimed by local macOS verification.
+`just test` and `just test-mcp` run the server with an isolated HOME/XDG environment, no external CLI PATH or credentials, `SHOP_ASSISTANT_DIALOGS=off`, and Bugsink disabled; they never open browser tabs or invoke external retail sites. `platforms` is set to `macos` (`macos-26` runner in CI).

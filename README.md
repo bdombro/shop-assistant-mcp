@@ -32,17 +32,14 @@ After setup, ask your agent:
 - Checkout, payment, login, and account pages are blocked; browser writes require confirmation.
 - Small footprint: a standalone MCP binary reuses your existing Brave browser rather than bundling one.
 
-## Installation
+## Install
 
-- **Prebuilt release:** the checked-in [Homebrew formula](Formula/shop-assistant-mcp.rb)
-  currently has a placeholder checksum. It is not a ready-to-install release.
-  Check [releases](https://github.com/bdombro/shop-assistant-mcp/releases) for published
-  binaries and a finalized formula before using a release installation command.
-- **Build from source:** the current path is [Development](#development).
-  Local slimr overlays are for development, not a runtime requirement.
-- **Already installed:** follow the setup and service steps below. Installing a
-  Cursor/Claude manifest only configures an endpoint; it does not install or
-  start the native service.
+```bash
+brew tap bdombro/shop-assistant-mcp https://github.com/bdombro/shop-assistant-mcp
+brew install bdombro/shop-assistant-mcp/shop-assistant-mcp
+```
+
+Note: check [releases](https://github.com/bdombro/shop-assistant-mcp/releases) for published binaries before running `brew install`; if no release is published yet, build from source per [development](docs/development.md). Installing a Cursor/Claude manifest only configures an endpoint; it does not install or start the native service.
 
 
 ## Configure the Shopping Browser
@@ -53,28 +50,28 @@ require a Brave instance exposing a **loopback-only** CDP endpoint, normally
 signed-in profile; do not expose remote debugging to your network.
 
 Set `SHOP_ASSISTANT_CDP_URL` if using another endpoint. Configure site
-preferences in the private file described under
-[Site Access Policy & Configuration](#site-access-policy--configuration).
+preferences in `$(brew --prefix)/etc/shop-assistant-mcp/config.json` (or
+`SHOP_ASSISTANT_CONFIG`). Service environment variables can be placed in
+`$(brew --prefix)/etc/shop-assistant-mcp/env` (`chmod 600`).
 The server manages its own tabs and refuses checkout/account pages.
 macOS supplies the confirmation dialogs; unattended mode denies prompts.
 
 
 ## Start and Manage the Service
 
-For an already-installed Homebrew formula:
-
 ```bash
-brew services start bdombro/shop-assistant-mcp/shop-assistant-mcp
+brew services start shop-assistant-mcp
 brew services info shop-assistant-mcp
-brew services restart bdombro/shop-assistant-mcp/shop-assistant-mcp
-brew services stop bdombro/shop-assistant-mcp/shop-assistant-mcp
+brew services restart shop-assistant-mcp
+brew services stop shop-assistant-mcp
 ```
 
-The endpoint is `http://127.0.0.1:10005/mcp`; logs are under
-`/opt/homebrew/var/log/`. To run in the foreground instead, use
-`shop-assistant-mcp http` (or `./build/bin/shop-assistant-mcp http` from a source checkout).
-Do not run the foreground server and service on the same port.
-Keep the default loopback bind; this is not a shared remote-host deployment.
+The HTTP server binds `0.0.0.0:10005` (`http://127.0.0.1:10005/mcp` locally)
+and writes rotated logs to `$(brew --prefix)/var/log/shop-assistant-mcp.log`
+(rotates to `shop-assistant-mcp.log.1` at 10 MiB). Data lives in
+`$(brew --prefix)/var/shop-assistant-mcp/`. To run in the foreground instead,
+use `shop-assistant-mcp http` (or `./build/bin/shop-assistant-mcp http` from a
+source checkout). Do not run the foreground server and service on the same port.
 
 
 ## Connect Your Agent
@@ -152,7 +149,7 @@ Every tool is exposed over MCP (`shop-assistant-mcp http` on `http://127.0.0.1:1
 
 ## Site Access Policy & Configuration
 
-Each site's Markdown policy file in `sites/<site>.md` defines its allowed domains, URL patterns (`search`, `product`, `blocked`), and default `read: on | ask | off` and `write: ask | off` states. Override per-site settings in `~/.config/shop-assistant/config.json`:
+Each site's Markdown policy file in `sites/<site>.md` defines its allowed domains, URL patterns (`search`, `product`, `blocked`), and default `read: on | ask | off` and `write: ask | off` states. Override per-site settings in `$(brew --prefix)/etc/shop-assistant-mcp/config.json`:
 
 ```json
 {
@@ -166,13 +163,15 @@ Each site's Markdown policy file in `sites/<site>.md` defines its allowed domain
 }
 ```
 
-| Environment Variable | Default | Purpose |
-| --- | --- | --- |
-| `SHOP_ASSISTANT_DB` | `~/.local/state/shop-assistant/shop.db` | SQLite cache and guard log path |
-| `SHOP_ASSISTANT_CDP_URL` | `http://127.0.0.1:9222` | Brave remote debugging endpoint |
-| `SHOP_ASSISTANT_CONFIG` | `~/.config/shop-assistant/config.json` | User config overrides |
-| `SHOP_ASSISTANT_DIALOGS` | `on` | Set to `off` in unattended/test runs to auto-deny `ask` prompts without macOS dialogs |
-| `BUGSINK_DSN` | Unset (disabled) | Optional error reporting DSN (`""` disables) |
+| Environment Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `SHOP_ASSISTANT_DB` | No | `$(brew --prefix)/var/shop-assistant-mcp/shop.db` | SQLite cache and guard log path |
+| `SHOP_ASSISTANT_CDP_URL` | No | `http://127.0.0.1:9222` | Brave remote debugging endpoint |
+| `SHOP_ASSISTANT_CONFIG` | No | `$(brew --prefix)/etc/shop-assistant-mcp/config.json` | User config overrides |
+| `SHOP_ASSISTANT_DIALOGS` | No | `on` | Set to `off` in unattended/test runs to auto-deny `ask` prompts without macOS dialogs |
+| `BUGSINK_DSN` | No | Unset (disabled) | Optional error reporting DSN (`""` disables) |
+
+Service environment variables can be placed in `$(brew --prefix)/etc/shop-assistant-mcp/env` (`chmod 600`).
 
 ## Troubleshooting
 
@@ -182,104 +181,15 @@ Each site's Markdown policy file in `sites/<site>.md` defines its allowed domain
 - **Port occupied:** inspect the listener and stop only the service/process
   you own, or deliberately choose another port and update the client URL.
 - **Works in a terminal, not as a service:** launchd does not inherit
-  `~/.zshrc`. Configure the service environment separately or use the
-  plugin's supported private configuration file; inspect
-  `/opt/homebrew/var/log/` for errors.
+  `~/.zshrc`. Put service variables in `$(brew --prefix)/etc/shop-assistant-mcp/env`
+  (`chmod 600`) and inspect `$(brew --prefix)/var/log/shop-assistant-mcp.log` for errors.
 - **Browser tools unavailable:** verify Brave's loopback CDP endpoint and dedicated profile. Handle CAPTCHA/access-denied pages manually; do not bypass them.
-- **Source build cannot find vcpkg or slimr ports:** load the development
-  environment, bootstrap vcpkg, and register both slimr links and the pinned
-  libhv overlay. Never repair this by editing installed headers.
-- **Compiler/hardening check fails:** upgrade the Xcode toolchain; set
+- **Compiler/hardening check fails:** upgrade Xcode / Command Line Tools; set
   `CXX` before first configure. CMake caches the compiler, so an intentional
   compiler change needs a fresh configuration tree.
 
 
 ## Development
 
-This section is for building or changing the server, not configuring an
-installed binary. [Architecture, transport reference and test details](docs/development.md)
-are separate from the user setup flow.
-
-<details>
-<summary>macOS source-build setup (vcpkg and local slimr overlays)</summary>
-
-## macOS Build Prerequisites (vcpkg setup)
-
-Install [Homebrew](https://brew.sh) and current Xcode Command Line Tools
-(`xcode-select --install`; finish installation before continuing), or full Xcode.
-Apple Clang 21 is the verified C++26/libc++ toolchain; older installations need
-upgrading. These instructions assume Apple Silicon Homebrew at `/opt/homebrew`.
-
-Add this environment snippet to `~/.zshrc`, then open a new terminal (or run
-`source ~/.zshrc`). Use `~/.zshrc`, not `~/.zshenv`, to avoid changing
-non-interactive zsh scripts:
-
-`local-ports` is the dedicated vcpkg overlay directory for local development
-linking: `just publish --local --all` registers symlinks to your slimr-cpp checkout,
-overriding published packages without making a registry release. See the
-[publishing guide on slimr-cpp](https://github.com/bdombro/slimr-cpp/blob/main/docs/publishing.md#local-environment).
-
-```bash
-export VCPKG_ROOT="$HOME/.local/share/vcpkg"
-export VCPKG_OVERLAY_PORTS="$VCPKG_ROOT/local-ports"
-# Use your existing workspace checkout instead when available.
-export SLIMR_CPP="${SLIMR_CPP:-$HOME/dev/bdombro/slimr-cpp}"
-export CXX="/usr/bin/clang++"
-export CLANG_TIDY="/opt/homebrew/opt/llvm/bin/clang-tidy"
-export PATH="$VCPKG_ROOT:/opt/homebrew/opt/ruby/bin:/opt/homebrew/bin:$PATH"
-```
-
-Then install and build from the repository root:
-
-```bash
-brew install cmake ninja just llvm node ruby autoconf automake libtool pkgconf
-mkdir -p "$(dirname "$VCPKG_ROOT")"
-if [ ! -d "$VCPKG_ROOT/.git" ]; then
-  git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
-fi
-"$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
-mkdir -p "$(dirname "$SLIMR_CPP")"
-if [ ! -d "$SLIMR_CPP/.git" ]; then
-  git clone https://github.com/bdombro/slimr-cpp.git "$SLIMR_CPP"
-fi
-(cd "$SLIMR_CPP" && just publish --local --all)
-ln -s "$SLIMR_CPP/ports/libhv" "$VCPKG_OVERLAY_PORTS/libhv"
-
-"$CXX" --version
-vcpkg version
-BUGSINK_DSN="" just test
-just build
-```
-
-The libhv link is a one-time step: if it exists, verify that it points to the
-chosen checkout's `ports/libhv` before skipping the command. Never overwrite
-a conflicting port directory or modify installed headers/caches. Current HTTP
-builds need both local slimr overlays and the separately pinned libhv port;
-the older published registry baseline alone is not an HTTP build substitute.
-`just deps` installs dependencies into `build/deps/`; vcpkg supplies Lexbor,
-static SQLite/FTS5 and WebSocket-enabled curl. Separate Homebrew library
-installs are unnecessary.
-
-Bootstrapping puts the executable at `$VCPKG_ROOT/vcpkg`, with no `bin/`
-subdirectory. Keg-only Homebrew Ruby supplies `/opt/homebrew/opt/ruby/bin/ruby`.
-Homebrew LLVM supplies lint tooling; select a different compatible `CXX`
-before first configure if needed, since CMake caches it. For reproducible
-vcpkg tooling, check out the tested full `VCPKG_REF` commit before bootstrapping;
-package registry baselines pin resolution separately.
-For live shopping, separately install Brave with
-`brew install --cask brave-browser` and configure its loopback CDP endpoint
-as described above. macOS supplies `osascript` for confirmation dialogs.
-Build/test commands do not launch a browser, open shopping tabs, or start
-services.
-
-</details>
-
-After the source build succeeds, stage and install the local Homebrew formula:
-
-```bash
-just install-local
-```
-
-Installing a formula and starting its service are separate actions.
-For a source-only foreground run, use
-`./build/bin/shop-assistant-mcp http`.
+See [docs/development.md](docs/development.md) for source builds, direct-binary
+testing on port `20005`, `just release`, and architecture details.
