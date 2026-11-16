@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Internal: switch macOS builds to `llvm@23` and static `libc++`
+
 ## v2.1.0 - 2026-11-16
 
 - Tag Bugsink error reports with shop-assistant-mcp@<version> from VERSION

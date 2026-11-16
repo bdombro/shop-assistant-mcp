@@ -183,11 +183,11 @@ they do not establish full live-site compatibility. Unused captured HTML/JSON, r
 and matching datasets are intentionally not distributed. The ISC license covers the
 original code and synthetic fixtures, not third-party site content or dependencies.
 
-Build on macOS with Apple Clang (`/usr/bin/clang++`), C++26, libc++ FAST hardening, CMake 3.31+, Ninja, [just](https://just.systems), [vcpkg](https://vcpkg.io), Bun, and `llvm@23` (`LLVM_BIN`) for clang-format and clang-tidy. Set `VCPKG_ROOT` to a bootstrapped checkout and put `vcpkg` on `PATH`.
+Build on macOS with `llvm@23` (`clang++` with `-stdlib=libc++` and static `libc++.a` + `libc++abi.a`, `LLVM_BIN`), C++26, libc++ FAST hardening, CMake 3.31+, Ninja, [just](https://just.systems), [vcpkg](https://vcpkg.io), and Bun. Set `VCPKG_ROOT` to a bootstrapped checkout and put `vcpkg` on `PATH`.
 
 `just configure`, `test`, `build`, and `lint` automatically run `deps`, installing manifest dependencies under `build/deps/`. CMake uses installed `slimr::mcp_http`, `slimr::sqlite`, `slimr::yaml`, `slimr::ws`, and `lexbor::lexbor_static` targets, preserving static SQLite/FTS5 and Lexbor linkage; manifest auto-install is disabled.
 
-Debug sanitizers and Release IPO builds have separate `build/cmake/Debug/` and `build/cmake/Release/` graphs. Both enable libc++ hardening and zero automatic-variable initialization; Debug adds ASan and fatal UBSan. Set `CXX` before the first configure to override the default Apple compiler on macOS; subsequent configures preserve CMake's cached compiler. CTest runs offline fixtures from the repository root with `SHOP_ASSISTANT_DIALOGS=off`, a finite timeout, and isolated repo-local HOME/XDG/temporary directories.
+Debug sanitizers and Release IPO builds have separate `build/cmake/Debug/` and `build/cmake/Release/` graphs. Both enable libc++ hardening and zero automatic-variable initialization; Debug adds ASan and fatal UBSan. Set `CXX` before the first configure to override the default `llvm@23` compiler; subsequent configures preserve CMake's cached compiler. CTest runs offline fixtures from the repository root with `SHOP_ASSISTANT_DIALOGS=off`, a finite timeout, and isolated repo-local HOME/XDG/temporary directories.
 
 ```bash
 just doctor   # Verify required tools, C++26 compiler, LLVM_BIN, and VCPKG_ROOT
