@@ -68,6 +68,6 @@ int main(int argc, char *argv[]) {
     }
 
     auto app = shop::make_shop_assistant_app();
-    slimr::enable_http(app, slimr::HttpServerOptions{.host = "127.0.0.1", .port = 10005});
+    slimr::enable_http(app, slimr::HttpServerOptions{.port = 10005});
     return app.run(static_cast<int>(filteredArgv.size()), filteredArgv.data());
 }
