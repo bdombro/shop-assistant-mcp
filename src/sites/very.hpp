@@ -25,8 +25,7 @@ inline const Delivery SITE_DELIVERY{
     .minDays = 3,
     .maxDays = 7,
     .cost = 3.99,
-    .source = "site default"
-};
+    .source = "site default"};
 
 inline std::optional<std::string> idOf(std::string_view url) {
     static const std::regex idRe(R"(/(\d+)\.prd)", std::regex::icase);
@@ -46,14 +45,15 @@ inline SearchResult parseVerySearch(std::string_view html, std::string_view chec
     std::vector<Offer> offers;
 
     auto cards = doc.querySelectorAll("[data-testid=\"gallery-product-card\"]");
-    for (const auto& card : cards) {
+    for (const auto &card : cards) {
         auto idAttr = card.attr("data-cnstrc-item-id");
         auto a = card.querySelector("a");
         auto hrefAttr = a ? a->attr("href") : std::nullopt;
         auto priceAttr = card.attr("data-cnstrc-item-price");
         std::optional<double> amount = priceAttr ? parsePrice(*priceAttr) : std::nullopt;
 
-        if (!idAttr || !hrefAttr || !amount || *amount <= 0) continue;
+        if (!idAttr || !hrefAttr || !amount || *amount <= 0)
+            continue;
 
         std::string name = text(card.attr("data-cnstrc-item-name").value_or(""));
 
@@ -77,7 +77,10 @@ inline SearchResult parseVerySearch(std::string_view html, std::string_view chec
         if (ratingEl) {
             auto ratAttr = ratingEl->attr("data-rating");
             if (ratAttr) {
-                try { rVal = std::stod(*ratAttr); } catch (...) {}
+                try {
+                    rVal = std::stod(*ratAttr);
+                } catch (...) {
+                }
             }
         }
         std::optional<int> reviewCount;
@@ -95,7 +98,8 @@ inline SearchResult parseVerySearch(std::string_view html, std::string_view chec
         auto brandEl = card.querySelector("[data-testid=\"fuse-product-card__brand\"]");
         if (brandEl) {
             std::string b = text(brandEl->text());
-            if (!b.empty()) brand = std::move(b);
+            if (!b.empty())
+                brand = std::move(b);
         }
 
         auto quantity = parseQuantity(name);
@@ -115,8 +119,7 @@ inline SearchResult parseVerySearch(std::string_view html, std::string_view chec
             .amount = *amount,
             .currency = "EUR",
             .was = (was.has_value() && *was > *amount) ? was : std::nullopt,
-            .taxIncluded = true
-        };
+            .taxIncluded = true};
         o.quantity = std::move(quantity);
         o.rating = std::move(rating);
         o.delivery = SITE_DELIVERY;
@@ -150,7 +153,7 @@ inline Offer parseVeryProduct(std::string_view html, std::string_view checkedAt)
     if (!groupOpt || !groupOpt->is_object()) {
         throw std::runtime_error("very: no ProductGroup JSON-LD on the page (layout changed?)");
     }
-    const auto& group = *groupOpt;
+    const auto &group = *groupOpt;
 
     struct VarInfo {
         slimr::Json v;
@@ -159,7 +162,7 @@ inline Offer parseVeryProduct(std::string_view html, std::string_view checkedAt)
     std::vector<VarInfo> variants;
 
     if (group.contains("hasVariant") && group["hasVariant"].is_array() && !group["hasVariant"].get<slimr::Json::array_t>().empty()) {
-        for (const auto& v : group["hasVariant"].get<slimr::Json::array_t>()) {
+        for (const auto &v : group["hasVariant"].get<slimr::Json::array_t>()) {
             slimr::Json offer;
             if (v.is_object() && v.contains("offers")) {
                 if (v["offers"].is_array() && !v["offers"].get<slimr::Json::array_t>().empty()) {
@@ -183,25 +186,31 @@ inline Offer parseVeryProduct(std::string_view html, std::string_view checkedAt)
     }
 
     std::vector<double> prices;
-    for (const auto& vi : variants) {
+    for (const auto &vi : variants) {
         if (vi.o.is_object() && vi.o.contains("price")) {
             std::optional<double> p;
-            if (vi.o["price"].is_string()) p = parsePrice(vi.o["price"].get<std::string>());
-            else if (vi.o["price"].is_number()) p = vi.o["price"].get<double>();
-            if (p) prices.push_back(*p);
+            if (vi.o["price"].is_string())
+                p = parsePrice(vi.o["price"].get<std::string>());
+            else if (vi.o["price"].is_number())
+                p = vi.o["price"].get<double>();
+            if (p)
+                prices.push_back(*p);
         }
     }
     if (prices.empty()) {
         throw std::runtime_error("very: no price in the product JSON-LD");
     }
 
-    const auto& first = variants[0];
+    const auto &first = variants[0];
     double amount = prices[0];
     if (first.o.is_object() && first.o.contains("price")) {
         std::optional<double> p;
-        if (first.o["price"].is_string()) p = parsePrice(first.o["price"].get<std::string>());
-        else if (first.o["price"].is_number()) p = first.o["price"].get<double>();
-        if (p) amount = *p;
+        if (first.o["price"].is_string())
+            p = parsePrice(first.o["price"].get<std::string>());
+        else if (first.o["price"].is_number())
+            p = first.o["price"].get<double>();
+        if (p)
+            amount = *p;
     }
 
     auto prevEl = doc.querySelector("[data-testid=\"product-price__prev\"]");
@@ -215,7 +224,7 @@ inline Offer parseVeryProduct(std::string_view html, std::string_view checkedAt)
 
     std::string returnPolicyCategory;
     if (first.o.is_object() && first.o.contains("hasMerchantReturnPolicy") && first.o["hasMerchantReturnPolicy"].is_object()) {
-        auto& retObj = first.o["hasMerchantReturnPolicy"];
+        auto &retObj = first.o["hasMerchantReturnPolicy"];
         if (retObj.contains("returnPolicyCategory") && retObj["returnPolicyCategory"].is_string()) {
             returnPolicyCategory = retObj["returnPolicyCategory"].get<std::string>();
         }
@@ -223,7 +232,7 @@ inline Offer parseVeryProduct(std::string_view html, std::string_view checkedAt)
 
     bool inStock = false;
     bool known = false;
-    for (const auto& vi : variants) {
+    for (const auto &vi : variants) {
         if (vi.o.is_object() && vi.o.contains("availability")) {
             known = true;
             std::string av = vi.o["availability"].is_string() ? vi.o["availability"].get<std::string>() : "";
@@ -237,11 +246,14 @@ inline Offer parseVeryProduct(std::string_view html, std::string_view checkedAt)
 
     std::optional<Rating> rating;
     if (group.contains("aggregateRating") && group["aggregateRating"].is_object()) {
-        auto& agg = group["aggregateRating"];
+        auto &agg = group["aggregateRating"];
         double rVal = 0.0;
         if (agg.contains("ratingValue")) {
             if (agg["ratingValue"].is_string()) {
-                try { rVal = std::stod(agg["ratingValue"].get<std::string>()); } catch (...) {}
+                try {
+                    rVal = std::stod(agg["ratingValue"].get<std::string>());
+                } catch (...) {
+                }
             } else if (agg["ratingValue"].is_number()) {
                 rVal = agg["ratingValue"].get<double>();
             }
@@ -249,7 +261,10 @@ inline Offer parseVeryProduct(std::string_view html, std::string_view checkedAt)
         std::optional<int> rCount;
         if (agg.contains("reviewCount")) {
             if (agg["reviewCount"].is_string()) {
-                try { rCount = std::stoi(agg["reviewCount"].get<std::string>()); } catch (...) {}
+                try {
+                    rCount = std::stoi(agg["reviewCount"].get<std::string>());
+                } catch (...) {
+                }
             } else if (agg["reviewCount"].is_number()) {
                 rCount = static_cast<int>(agg["reviewCount"].get<double>());
             }
@@ -271,20 +286,23 @@ inline Offer parseVeryProduct(std::string_view html, std::string_view checkedAt)
     std::optional<std::string> model;
     if (first.v.is_object() && first.v.contains("mpn") && first.v["mpn"].is_string()) {
         std::string m = text(first.v["mpn"].get<std::string>());
-        if (!m.empty()) model = std::move(m);
+        if (!m.empty())
+            model = std::move(m);
     }
 
     std::map<std::string, slimr::Json> details;
     if (first.v.is_object() && first.v.contains("sku") && first.v["sku"].is_string()) {
         std::string sku = text(first.v["sku"].get<std::string>());
-        if (!sku.empty()) details["Item number"] = sku;
+        if (!sku.empty())
+            details["Item number"] = sku;
     }
     if (model) {
         details["Model"] = *model;
     }
     if (first.v.is_object() && first.v.contains("color") && first.v["color"].is_string()) {
         std::string col = text(first.v["color"].get<std::string>());
-        if (!col.empty()) details["Colour"] = col;
+        if (!col.empty())
+            details["Colour"] = col;
     }
 
     if (variants.size() > 1) {
@@ -292,8 +310,10 @@ inline Offer parseVeryProduct(std::string_view html, std::string_view checkedAt)
         double hi = *std::max_element(prices.begin(), prices.end());
         auto formatP = [](double v) {
             std::string s = std::to_string(v);
-            while (s.size() > 1 && s.back() == '0') s.pop_back();
-            if (!s.empty() && s.back() == '.') s.pop_back();
+            while (s.size() > 1 && s.back() == '0')
+                s.pop_back();
+            if (!s.empty() && s.back() == '.')
+                s.pop_back();
             return s;
         };
         if (lo == hi) {
@@ -314,7 +334,8 @@ inline Offer parseVeryProduct(std::string_view html, std::string_view checkedAt)
         desc = std::regex_replace(desc, tagRe, " ");
         desc = text(desc);
         if (!desc.empty()) {
-            if (desc.size() > 600) desc = desc.substr(0, 600);
+            if (desc.size() > 600)
+                desc = desc.substr(0, 600);
             details["Description"] = desc;
         }
     }
@@ -332,13 +353,15 @@ inline Offer parseVeryProduct(std::string_view html, std::string_view checkedAt)
     std::optional<std::string> gtin;
     if (group.contains("gtin") && group["gtin"].is_string()) {
         std::string g = text(group["gtin"].get<std::string>());
-        if (!g.empty()) gtin = std::move(g);
+        if (!g.empty())
+            gtin = std::move(g);
     }
 
     std::string currency = "EUR";
     if (first.o.is_object() && first.o.contains("priceCurrency") && first.o["priceCurrency"].is_string()) {
         std::string pc = text(first.o["priceCurrency"].get<std::string>());
-        if (!pc.empty()) currency = std::move(pc);
+        if (!pc.empty())
+            currency = std::move(pc);
     }
 
     Delivery delivery = SITE_DELIVERY;
@@ -358,10 +381,10 @@ inline Offer parseVeryProduct(std::string_view html, std::string_view checkedAt)
         .amount = amount,
         .currency = std::move(currency),
         .was = (was.has_value() && *was > amount) ? was : std::nullopt,
-        .taxIncluded = true
-    };
+        .taxIncluded = true};
     o.quantity = std::move(quantity);
-    if (known) o.inStock = inStock;
+    if (known)
+        o.inStock = inStock;
     o.rating = std::move(rating);
     o.delivery = std::move(delivery);
     o.details = std::move(details);
@@ -369,16 +392,17 @@ inline Offer parseVeryProduct(std::string_view html, std::string_view checkedAt)
     return o;
 }
 
-inline ReviewsResult parseVeryReviews(const slimr::Json& json) {
-    const slimr::Json* root = &json;
+inline ReviewsResult parseVeryReviews(const slimr::Json &json) {
+    const slimr::Json *root = &json;
     if (json.is_object() && json.contains("response") && json["response"].is_object()) {
         root = &json["response"];
     }
 
     std::vector<Review> reviews;
     if (root->is_object() && root->contains("Results") && (*root)["Results"].is_array()) {
-        for (const auto& r : (*root)["Results"].get<slimr::Json::array_t>()) {
-            if (!r.is_object()) continue;
+        for (const auto &r : (*root)["Results"].get<slimr::Json::array_t>()) {
+            if (!r.is_object())
+                continue;
             if (!r.contains("Rating") || !r["Rating"].is_number() ||
                 !r.contains("ReviewText") || !r["ReviewText"].is_string()) {
                 continue;
@@ -391,13 +415,15 @@ inline ReviewsResult parseVeryReviews(const slimr::Json& json) {
             std::optional<std::string> title;
             if (r.contains("Title") && r["Title"].is_string()) {
                 std::string t = text(r["Title"].get<std::string>());
-                if (!t.empty()) title = std::move(t);
+                if (!t.empty())
+                    title = std::move(t);
             }
             std::string reviewText = text(r["ReviewText"].get<std::string>());
             std::optional<std::string> date;
             if (r.contains("SubmissionTime") && r["SubmissionTime"].is_string()) {
                 std::string s = r["SubmissionTime"].get<std::string>();
-                if (s.size() >= 10) date = s.substr(0, 10);
+                if (s.size() >= 10)
+                    date = s.substr(0, 10);
             }
             std::optional<bool> verified;
             if (r.contains("Badges") && r["Badges"].is_object()) {
@@ -416,8 +442,7 @@ inline ReviewsResult parseVeryReviews(const slimr::Json& json) {
                 .date = std::move(date),
                 .verified = verified,
                 .variant = std::nullopt,
-                .syndicated = syndicated
-            });
+                .syndicated = syndicated});
         }
     }
 
@@ -429,7 +454,7 @@ inline ReviewsResult parseVeryReviews(const slimr::Json& json) {
 }
 
 class VeryAdapter : public SiteAdapter {
-public:
+  public:
     std::string id() const override { return "very"; }
     bool deliveryOnly() const override { return true; }
     std::string matchHint() const override {
@@ -437,14 +462,14 @@ public:
                "use the product type and brand (\"jbl headphones\").";
     }
 
-    SearchResult search(SiteContext& ctx, const SearchQuery& query) override {
+    SearchResult search(SiteContext &ctx, const SearchQuery &query) override {
         std::string trimmed = text(query.query);
         std::string url = very_internal::BASE + "e/q/" + slimr::url_encode(trimmed) + ".end";
         std::string html = ctx.fetchText(url);
         return parseVerySearch(html, "");
     }
 
-    std::vector<Offer> offer(SiteContext& ctx, const OfferRef& ref, const OfferOptions& options) override {
+    std::vector<Offer> offer(SiteContext &ctx, const OfferRef &ref, const OfferOptions &options) override {
         (void)options;
         std::string url = ref.url ? canonicalUrl(*ref.url, very_internal::BASE) : "";
         if (url.empty() && ref.id) {
@@ -457,7 +482,7 @@ public:
         return {parseVeryProduct(html, "")};
     }
 
-    ReviewsResult reviews(SiteContext& ctx, const OfferRef& ref, const ReviewQuery& query) override {
+    ReviewsResult reviews(SiteContext &ctx, const OfferRef &ref, const ReviewQuery &query) override {
         std::string id = ref.id.value_or("");
         if (id.empty() && ref.url) {
             id = very_internal::idOf(*ref.url).value_or("");
@@ -467,18 +492,22 @@ public:
         }
 
         std::string sortParam = "rating:asc";
-        if (query.sort == "newest") sortParam = "submissiontime:desc";
-        else if (query.sort == "helpful") sortParam = "helpfulness:desc";
+        if (query.sort == "newest")
+            sortParam = "submissiontime:desc";
+        else if (query.sort == "helpful")
+            sortParam = "helpfulness:desc";
 
         int limit = std::min(query.limit, 100);
         std::string url = very_internal::BV +
-            "?resource=reviews&action=REVIEWS_N_STATS&filteredstats=reviews&Stats=Reviews"
-            "&limit=" + std::to_string(limit) +
-            "&offset=0&sort=" + slimr::url_encode(sortParam) +
-            "&apiversion=5.5&displaycode=19737-en_ie"
-            "&filter=productid%3Aeq%3A" + slimr::url_encode(id) +
-            "&filter=contentlocale%3Aeq%3Aen_GB%2Cen_IE"
-            "&filter=isratingsonly%3Aeq%3Afalse";
+                          "?resource=reviews&action=REVIEWS_N_STATS&filteredstats=reviews&Stats=Reviews"
+                          "&limit=" +
+                          std::to_string(limit) +
+                          "&offset=0&sort=" + slimr::url_encode(sortParam) +
+                          "&apiversion=5.5&displaycode=19737-en_ie"
+                          "&filter=productid%3Aeq%3A" +
+                          slimr::url_encode(id) +
+                          "&filter=contentlocale%3Aeq%3Aen_GB%2Cen_IE"
+                          "&filter=isratingsonly%3Aeq%3Afalse";
 
         FetchInit init;
         init.headers["bv-bfd-token"] = "19737,main_site,en_IE";

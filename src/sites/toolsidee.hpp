@@ -23,8 +23,7 @@ inline const Delivery DELIVERY{
     .minDays = 1,
     .maxDays = 3,
     .cost = 15.49,
-    .source = "site default"
-};
+    .source = "site default"};
 
 inline std::string idOf(std::string_view url) {
     static const std::regex idRe(R"(-(P\d+)\.html)", std::regex::icase);
@@ -44,15 +43,18 @@ inline SearchResult parseToolsideeSearch(std::string_view html, std::string_view
     std::vector<Offer> offers;
 
     auto lis = doc.querySelectorAll("ul#product_list_show > li.product");
-    for (const auto& li : lis) {
+    for (const auto &li : lis) {
         auto a = li.querySelector("a[href*=\"/product/\"]");
-        if (!a) continue;
+        if (!a)
+            continue;
         auto href = a->attr("href");
-        if (!href) continue;
+        if (!href)
+            continue;
 
         auto priceEl = li.querySelector(".product_price_holder .amount");
         std::optional<double> amount = priceEl ? parsePrice(priceEl->text()) : std::nullopt;
-        if (!amount || *amount <= 0) continue;
+        if (!amount || *amount <= 0)
+            continue;
 
         std::string url = canonicalUrl(*href, BASE);
         auto h3 = li.querySelector("h3");
@@ -79,13 +81,16 @@ inline SearchResult parseToolsideeSearch(std::string_view html, std::string_view
         auto quantity = parseQuantity(name);
 
         std::map<std::string, slimr::Json> details;
-        if (!stock.empty()) details["Stock"] = stock;
-        if (!lead.empty()) details["Delivery time"] = lead;
+        if (!stock.empty())
+            details["Stock"] = stock;
+        if (!lead.empty())
+            details["Delivery time"] = lead;
 
         auto specsEl = li.querySelector("p.product_specs_l");
         if (specsEl) {
             std::string specs = text(specsEl->text());
-            if (!specs.empty()) details["Description"] = specs;
+            if (!specs.empty())
+                details["Description"] = specs;
         }
 
         Delivery delivery;
@@ -97,8 +102,7 @@ inline SearchResult parseToolsideeSearch(std::string_view html, std::string_view
                 .minDays = *minDays,
                 .maxDays = *maxDays,
                 .cost = 15.49,
-                .source = "listing"
-            };
+                .source = "listing"};
         } else {
             delivery = DELIVERY;
         }
@@ -112,8 +116,7 @@ inline SearchResult parseToolsideeSearch(std::string_view html, std::string_view
             .amount = *amount,
             .currency = "EUR",
             .was = (was.has_value() && *was > *amount) ? was : std::nullopt,
-            .taxIncluded = true
-        };
+            .taxIncluded = true};
         o.quantity = std::move(quantity);
         o.inStock = inStock;
         o.delivery = std::move(delivery);
@@ -132,12 +135,12 @@ inline Offer parseToolsideeProduct(std::string_view html, std::string_view check
     if (!productOpt || !productOpt->is_object()) {
         throw std::runtime_error("toolsidee: no Product JSON-LD on the page (layout changed?)");
     }
-    const auto& product = *productOpt;
+    const auto &product = *productOpt;
 
     if (!product.contains("offers") || !product["offers"].is_object()) {
         throw std::runtime_error("toolsidee: no price in the Product JSON-LD");
     }
-    const auto& offerObj = product["offers"];
+    const auto &offerObj = product["offers"];
 
     std::optional<double> amount;
     if (offerObj.contains("price")) {
@@ -175,7 +178,7 @@ inline Offer parseToolsideeProduct(std::string_view html, std::string_view check
     slimr::Json::array_t features;
     auto ths = doc.querySelectorAll("tr > th");
     static const std::regex kvRe(R"(^([^:]{2,60}):\s*(.+)$)");
-    for (const auto& th : ths) {
+    for (const auto &th : ths) {
         std::string row = text(th.text());
         std::smatch m;
         if (std::regex_search(row, m, kvRe)) {
@@ -189,7 +192,7 @@ inline Offer parseToolsideeProduct(std::string_view html, std::string_view check
     }
 
     if (offerObj.contains("hasMerchantReturnPolicy") && offerObj["hasMerchantReturnPolicy"].is_object()) {
-        auto& retObj = offerObj["hasMerchantReturnPolicy"];
+        auto &retObj = offerObj["hasMerchantReturnPolicy"];
         if (retObj.contains("merchantReturnDays") && retObj["merchantReturnDays"].is_number()) {
             details["Returns (days)"] = static_cast<int64_t>(retObj["merchantReturnDays"].get<double>());
         }
@@ -207,7 +210,8 @@ inline Offer parseToolsideeProduct(std::string_view html, std::string_view check
     std::string currency = "EUR";
     if (offerObj.contains("priceCurrency") && offerObj["priceCurrency"].is_string()) {
         std::string pc = text(offerObj["priceCurrency"].get<std::string>());
-        if (!pc.empty()) currency = std::move(pc);
+        if (!pc.empty())
+            currency = std::move(pc);
     }
 
     Offer o;
@@ -230,16 +234,16 @@ inline Offer parseToolsideeProduct(std::string_view html, std::string_view check
 }
 
 class ToolsideeAdapter : public SiteAdapter {
-public:
+  public:
     std::string id() const override { return "toolsidee"; }
     bool deliveryOnly() const override { return true; }
     std::string matchHint() const override {
         return "Toolsidee matches loosely on English product titles; try the product type alone.";
     }
 
-    SearchResult search(SiteContext& ctx, const SearchQuery& query) override {
+    SearchResult search(SiteContext &ctx, const SearchQuery &query) override {
         std::string enc = slimr::url_encode(query.query);
-        for (size_t pos = 0; (pos = enc.find("%20", pos)) != std::string::npos; ) {
+        for (size_t pos = 0; (pos = enc.find("%20", pos)) != std::string::npos;) {
             enc.replace(pos, 3, "+");
             pos += 1;
         }
@@ -248,7 +252,7 @@ public:
         return parseToolsideeSearch(html, "");
     }
 
-    std::vector<Offer> offer(SiteContext& ctx, const OfferRef& ref, const OfferOptions& options) override {
+    std::vector<Offer> offer(SiteContext &ctx, const OfferRef &ref, const OfferOptions &options) override {
         (void)options;
         std::string url = ref.url.value_or("");
         if (url.empty()) {

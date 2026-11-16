@@ -1,11 +1,11 @@
 #pragma once
 
-#include "core/adapter.hpp"
 #include "adverts.hpp"
 #include "amazon.hpp"
 #include "bing.hpp"
 #include "brooks.hpp"
 #include "chadwicks.hpp"
+#include "core/adapter.hpp"
 #include "currys.hpp"
 #include "diy.hpp"
 #include "donedeal.hpp"
@@ -26,7 +26,7 @@
 
 namespace shop::sites {
 
-inline void register_all_sites(core::AdapterRegistry& reg) {
+inline void register_all_sites(core::AdapterRegistry &reg) {
     reg.registerAdapter(std::make_unique<AdvertsAdapter>());
     reg.registerAdapter(std::make_unique<AmazonAdapter>());
     reg.registerAdapter(std::make_unique<BingAdapter>());

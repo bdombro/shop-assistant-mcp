@@ -17,14 +17,22 @@ namespace shop::core {
 
 inline int defaultTtlS(PageKind kind) {
     switch (kind) {
-        case PageKind::search: return 3600;
-        case PageKind::product: return 4 * 3600;
-        case PageKind::reviews: return 24 * 3600;
-        case PageKind::offers: return 3600;
-        case PageKind::stock: return 3600;
-        case PageKind::departments: return 7 * 24 * 3600;
-        case PageKind::policy: return 7 * 24 * 3600;
-        case PageKind::other: return 3600;
+    case PageKind::search:
+        return 3600;
+    case PageKind::product:
+        return 4 * 3600;
+    case PageKind::reviews:
+        return 24 * 3600;
+    case PageKind::offers:
+        return 3600;
+    case PageKind::stock:
+        return 3600;
+    case PageKind::departments:
+        return 7 * 24 * 3600;
+    case PageKind::policy:
+        return 7 * 24 * 3600;
+    case PageKind::other:
+        return 3600;
     }
 }
 
@@ -34,8 +42,8 @@ struct GuardEvent {
     std::optional<std::string> site;
     std::string method;
     std::string url;
-    std::string action;   // "continue" | "ask" | "fail"
-    std::string outcome;  // "allowed" | "denied" | "blocked" | "timeout"
+    std::string action;  // "continue" | "ask" | "fail"
+    std::string outcome; // "allowed" | "denied" | "blocked" | "timeout"
     std::string reason;
 };
 
@@ -82,21 +90,22 @@ CREATE INDEX IF NOT EXISTS site_checks_site ON site_checks (site, at);
 
 /// Thread-safe SQLite backing store for cached pages, guard events, and site checks.
 class Store {
-public:
+  public:
     Store(std::unique_ptr<slimr::SqliteDb> db, std::function<int64_t()> now_fn = nullptr)
         : db_(std::move(db)), now_(now_fn ? std::move(now_fn) : defaultNow) {}
 
-    Store(const Store&) = delete;
-    Store& operator=(const Store&) = delete;
+    Store(const Store &) = delete;
+    Store &operator=(const Store &) = delete;
 
-    Store(Store&& other) noexcept {
+    Store(Store &&other) noexcept {
         std::lock_guard<std::recursive_mutex> lock(other.mu_);
         db_ = std::move(other.db_);
         now_ = std::move(other.now_);
     }
 
-    Store& operator=(Store&& other) noexcept {
-        if (this == &other) return *this;
+    Store &operator=(Store &&other) noexcept {
+        if (this == &other)
+            return *this;
         std::scoped_lock lock(mu_, other.mu_);
         db_ = std::move(other.db_);
         now_ = std::move(other.now_);
@@ -105,21 +114,22 @@ public:
 
     static int64_t defaultNow() {
         return std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::system_clock::now().time_since_epoch()).count();
+                   std::chrono::system_clock::now().time_since_epoch())
+            .count();
     }
 
-    static Store open(const std::string& path, std::function<int64_t()> now_fn = nullptr) {
+    static Store open(const std::string &path, std::function<int64_t()> now_fn = nullptr) {
         slimr::SqliteOptions opts;
         opts.migrations = std::map<int, std::string>{{SCHEMA_VERSION, SCHEMA_SQL}};
         auto db = std::make_unique<slimr::SqliteDb>(path, std::move(opts));
         return Store(std::move(db), std::move(now_fn));
     }
 
-    slimr::SqliteDb& sqlite() { return *db_; }
+    slimr::SqliteDb &sqlite() { return *db_; }
 
     /// Executes `fn` inside a serialized SQLite transaction under the Store mutex.
     template <typename Fn>
-    decltype(auto) transaction(Fn&& fn) {
+    decltype(auto) transaction(Fn &&fn) {
         std::lock_guard<std::recursive_mutex> lock(mu_);
         return db_->transaction([&]() -> decltype(auto) { return fn(*db_); });
     }
@@ -127,22 +137,25 @@ public:
     std::optional<CachedPage> getPage(std::string_view key) {
         std::lock_guard<std::recursive_mutex> lock(mu_);
         auto row = db_->get("SELECT fetched_at, expires_at, body FROM pages WHERE key = ?", {std::string(key)});
-        if (!row || row->is_null()) return std::nullopt;
+        if (!row || row->is_null())
+            return std::nullopt;
         int64_t expiresAt = (*row)["expires_at"].get<int64_t>();
-        if (expiresAt <= now_()) return std::nullopt;
+        if (expiresAt <= now_())
+            return std::nullopt;
 
         int64_t fetchedAt = (*row)["fetched_at"].get<int64_t>();
         std::string body = (*row)["body"].get<std::string>();
         auto parsed = slimr::parse_json<CleanPage>(body);
-        if (!parsed) return std::nullopt;
+        if (!parsed)
+            return std::nullopt;
 
         CachedPage res;
-        static_cast<CleanPage&>(res) = std::move(*parsed);
+        static_cast<CleanPage &>(res) = std::move(*parsed);
         res.fetchedAt = fetchedAt;
         return res;
     }
 
-    void putPage(std::string_view key, PageKind kind, int64_t ttlS, const CleanPage& page) {
+    void putPage(std::string_view key, PageKind kind, int64_t ttlS, const CleanPage &page) {
         std::lock_guard<std::recursive_mutex> lock(mu_);
         int64_t fetchedAt = now_();
         int64_t expiresAt = fetchedAt + ttlS * 1000;
@@ -152,7 +165,7 @@ public:
             {std::string(key), pageKindToString(kind), page.url, fetchedAt, expiresAt, std::move(body)});
     }
 
-    void logGuard(const GuardEvent& event) {
+    void logGuard(const GuardEvent &event) {
         std::lock_guard<std::recursive_mutex> lock(mu_);
         slimr::SqlValue siteVal;
         if (event.site.has_value()) {
@@ -165,13 +178,15 @@ public:
             {event.at, event.pageId, siteVal, event.method, event.url, event.action, event.outcome, event.reason});
     }
 
-    std::vector<GuardEvent> guardEvents(const std::vector<int64_t>& pageIds, int64_t sinceMs) {
-        if (pageIds.empty()) return {};
+    std::vector<GuardEvent> guardEvents(const std::vector<int64_t> &pageIds, int64_t sinceMs) {
+        if (pageIds.empty())
+            return {};
         std::lock_guard<std::recursive_mutex> lock(mu_);
         std::string sql = "SELECT at, page_id, site, method, url, action, outcome, reason FROM guard_log WHERE page_id IN (";
         std::vector<slimr::SqlValue> params;
         for (size_t i = 0; i < pageIds.size(); ++i) {
-            if (i > 0) sql += ", ";
+            if (i > 0)
+                sql += ", ";
             sql += "?";
             params.push_back(pageIds[i]);
         }
@@ -180,7 +195,7 @@ public:
 
         auto rows = db_->all(sql, params);
         std::vector<GuardEvent> events;
-        for (const auto& r : rows) {
+        for (const auto &r : rows) {
             GuardEvent ev;
             ev.at = r["at"].get<int64_t>();
             ev.pageId = r["page_id"].get<int64_t>();
@@ -235,7 +250,7 @@ public:
         }
     }
 
-private:
+  private:
     mutable std::recursive_mutex mu_;
     std::unique_ptr<slimr::SqliteDb> db_;
     std::function<int64_t()> now_;

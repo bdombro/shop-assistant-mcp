@@ -1,9 +1,9 @@
 #pragma once
 
-#include "dom.hpp"
-#include "policy.hpp"
 #include "db.hpp"
+#include "dom.hpp"
 #include "json.hpp"
+#include "policy.hpp"
 
 #include <curl/curl.h>
 
@@ -183,35 +183,38 @@ struct FetchInit {
 };
 
 class SiteContext {
-public:
+  public:
     virtual ~SiteContext() = default;
-    virtual void gotoUrl(const std::string& url) = 0;
-    virtual std::string fetchText(const std::string& url, const FetchInit& init = {}) = 0;
-    virtual slimr::Json fetchJson(const std::string& url, const FetchInit& init = {}) = 0;
+    virtual void gotoUrl(const std::string &url) = 0;
+    virtual std::string fetchText(const std::string &url, const FetchInit &init = {}) = 0;
+    virtual slimr::Json fetchJson(const std::string &url, const FetchInit &init = {}) = 0;
     virtual std::string html() = 0;
-    virtual void warn(const std::string& message) = 0;
-    virtual const SitePolicy& site() const = 0;
-    virtual slimr::Json evaluate(const std::string& script) {
+    virtual void warn(const std::string &message) = 0;
+    virtual const SitePolicy &site() const = 0;
+    virtual slimr::Json evaluate(const std::string &script) {
         (void)script;
         return {};
     }
 };
 
 class SiteAdapter {
-public:
+  public:
     virtual ~SiteAdapter() = default;
     virtual std::string id() const = 0;
     virtual std::string matchHint() const { return ""; }
     virtual bool deliveryOnly() const { return false; }
 
-    virtual SearchResult search(SiteContext& ctx, const SearchQuery& query) = 0;
-    virtual std::vector<Offer> offer(SiteContext& ctx, const OfferRef& ref, const OfferOptions& options) = 0;
-    virtual std::vector<Offer> pickup(SiteContext& ctx, const std::vector<Offer>& offers, const Near& near) {
-        (void)ctx; (void)near;
+    virtual SearchResult search(SiteContext &ctx, const SearchQuery &query) = 0;
+    virtual std::vector<Offer> offer(SiteContext &ctx, const OfferRef &ref, const OfferOptions &options) = 0;
+    virtual std::vector<Offer> pickup(SiteContext &ctx, const std::vector<Offer> &offers, const Near &near) {
+        (void)ctx;
+        (void)near;
         return offers;
     }
-    virtual ReviewsResult reviews(SiteContext& ctx, const OfferRef& ref, const ReviewQuery& query) {
-        (void)ctx; (void)ref; (void)query;
+    virtual ReviewsResult reviews(SiteContext &ctx, const OfferRef &ref, const ReviewQuery &query) {
+        (void)ctx;
+        (void)ref;
+        (void)query;
         return {};
     }
 };
@@ -224,12 +227,12 @@ inline double distanceKm(double lat1, double lon1, double lat2, double lon2) {
     double dLon = (lon2 - lon1) * rad;
     double h = std::sin(dLat / 2.0) * std::sin(dLat / 2.0) +
                std::cos(lat1 * rad) * std::cos(lat2 * rad) *
-               std::sin(dLon / 2.0) * std::sin(dLon / 2.0);
+                   std::sin(dLon / 2.0) * std::sin(dLon / 2.0);
     double d = 12742.0 * std::asin(std::sqrt(h));
     return std::round(d * 100.0) / 100.0;
 }
 
-inline double distanceKm(const Near& near, double lat2, double lon2) {
+inline double distanceKm(const Near &near, double lat2, double lon2) {
     return distanceKm(near.lat, near.lon, lat2, lon2);
 }
 
@@ -257,20 +260,24 @@ inline std::string text(std::string_view val) {
 
 template <typename T>
     requires std::is_same_v<std::decay_t<T>, std::optional<std::string>>
-inline std::string text(const T& val) {
+inline std::string text(const T &val) {
     return val ? cleanText(*val) : "";
 }
 
 template <typename T>
     requires std::is_same_v<std::decay_t<T>, slimr::Json>
-inline std::string text(const T& j) {
-    if (j.is_string()) return cleanText(j.template get<std::string>());
+inline std::string text(const T &j) {
+    if (j.is_string())
+        return cleanText(j.template get<std::string>());
     if (j.is_number()) {
-        if (j.is_int64()) return std::to_string(j.template get<int64_t>());
+        if (j.is_int64())
+            return std::to_string(j.template get<int64_t>());
         if (j.is_double()) {
             std::string s = std::to_string(j.template get<double>());
-            while (s.size() > 1 && s.back() == '0') s.pop_back();
-            if (!s.empty() && s.back() == '.') s.pop_back();
+            while (s.size() > 1 && s.back() == '0')
+                s.pop_back();
+            if (!s.empty() && s.back() == '.')
+                s.pop_back();
             return s;
         }
     }
@@ -284,28 +291,35 @@ inline std::optional<double> parsePrice(std::string_view val) {
             s.push_back(c);
         }
     }
-    if (s.empty()) return std::nullopt;
+    if (s.empty())
+        return std::nullopt;
     static const std::regex commaDec(R"(,\d{2}$)");
     if (std::regex_search(s, commaDec)) {
         std::string cleaned;
         for (char c : s) {
-            if (c == '.') continue;
-            if (c == ',') cleaned.push_back('.');
-            else cleaned.push_back(c);
+            if (c == '.')
+                continue;
+            if (c == ',')
+                cleaned.push_back('.');
+            else
+                cleaned.push_back(c);
         }
         s = cleaned;
     } else {
         std::string cleaned;
         for (char c : s) {
-            if (c != ',') cleaned.push_back(c);
+            if (c != ',')
+                cleaned.push_back(c);
         }
         s = cleaned;
     }
     try {
         size_t idx = 0;
         double d = std::stod(s, &idx);
-        if (idx > 0 && std::isfinite(d)) return d;
-    } catch (...) {}
+        if (idx > 0 && std::isfinite(d))
+            return d;
+    } catch (...) {
+    }
     return std::nullopt;
 }
 
@@ -318,15 +332,19 @@ inline std::optional<double> parseGbp(std::string_view text) {
 }
 
 inline std::optional<bool> parseStock(std::string_view val) {
-    if (val.empty()) return std::nullopt;
+    if (val.empty())
+        return std::nullopt;
     std::string s(val);
-    for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (char &c : s)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 
     static const std::regex outRe(R"(out ?of ?stock|sold ?out|unavailable|^no$|^false$|discontinued)");
-    if (std::regex_search(s, outRe)) return false;
+    if (std::regex_search(s, outRe))
+        return false;
 
     static const std::regex inRe(R"(in ?stock|^yes$|^true$|available|limited ?stock|^\d+ in stock)");
-    if (std::regex_search(s, inRe)) return true;
+    if (std::regex_search(s, inRe))
+        return true;
 
     return std::nullopt;
 }
@@ -351,9 +369,10 @@ inline std::optional<Quantity> parseQuantity(std::string_view title) {
 inline std::string canonicalUrl(
     std::string_view href,
     std::string_view base,
-    const std::vector<std::string>& keep = {}) {
-    CURLU* u = curl_url();
-    if (!u) return std::string(href);
+    const std::vector<std::string> &keep = {}) {
+    CURLU *u = curl_url();
+    if (!u)
+        return std::string(href);
     if (curl_url_set(u, CURLUPART_URL, std::string(base).c_str(), 0) != CURLUE_OK ||
         curl_url_set(u, CURLUPART_URL, std::string(href).c_str(), 0) != CURLUE_OK) {
         curl_url_cleanup(u);
@@ -361,7 +380,7 @@ inline std::string canonicalUrl(
     }
     curl_url_set(u, CURLUPART_FRAGMENT, nullptr, 0);
 
-    char* query_ptr = nullptr;
+    char *query_ptr = nullptr;
     if (curl_url_get(u, CURLUPART_QUERY, &query_ptr, 0) == CURLUE_OK && query_ptr) {
         std::string query = query_ptr;
         curl_free(query_ptr);
@@ -374,7 +393,8 @@ inline std::string canonicalUrl(
             std::regex::icase);
 
         while (std::getline(iss, param, '&')) {
-            if (param.empty()) continue;
+            if (param.empty())
+                continue;
             size_t eq = param.find('=');
             std::string name = (eq == std::string::npos) ? param : param.substr(0, eq);
             std::string val = (eq == std::string::npos) ? "" : param.substr(eq + 1);
@@ -394,7 +414,8 @@ inline std::string canonicalUrl(
         } else {
             std::string newQuery;
             for (size_t i = 0; i < keptParams.size(); ++i) {
-                if (i > 0) newQuery += "&";
+                if (i > 0)
+                    newQuery += "&";
                 newQuery += keptParams[i].first;
                 if (!keptParams[i].second.empty()) {
                     newQuery += "=" + keptParams[i].second;
@@ -404,7 +425,7 @@ inline std::string canonicalUrl(
         }
     }
 
-    char* full = nullptr;
+    char *full = nullptr;
     std::string result = std::string(href);
     if (curl_url_get(u, CURLUPART_URL, &full, 0) == CURLUE_OK && full) {
         result = full;
@@ -414,12 +435,13 @@ inline std::string canonicalUrl(
     return result;
 }
 
-inline void capDetails(Offer& offer) {
-    if (offer.details.empty()) return;
+inline void capDetails(Offer &offer) {
+    if (offer.details.empty())
+        return;
     const size_t MAX_KEYS = 8;
     const size_t MAX_CHARS = 200;
 
-    auto capVal = [&](auto& self, slimr::Json val) -> slimr::Json {
+    auto capVal = [&](auto &self, slimr::Json val) -> slimr::Json {
         if (val.is_string()) {
             std::string s = val.get<std::string>();
             if (s.size() > MAX_CHARS) {
@@ -438,8 +460,9 @@ inline void capDetails(Offer& offer) {
         if (val.is_object()) {
             slimr::Json::object_t obj;
             size_t count = 0;
-            for (const auto& [k, v] : val.get<slimr::Json::object_t>()) {
-                if (++count > MAX_KEYS) break;
+            for (const auto &[k, v] : val.get<slimr::Json::object_t>()) {
+                if (++count > MAX_KEYS)
+                    break;
                 obj[k] = self(self, v);
             }
             return slimr::Json(std::move(obj));
@@ -450,8 +473,9 @@ inline void capDetails(Offer& offer) {
     std::map<std::string, slimr::Json> kept;
     size_t count = 0;
     size_t total = offer.details.size();
-    for (const auto& [k, v] : offer.details) {
-        if (++count > MAX_KEYS) break;
+    for (const auto &[k, v] : offer.details) {
+        if (++count > MAX_KEYS)
+            break;
         kept[k] = capVal(capVal, v);
     }
     if (total > kept.size()) {
@@ -465,10 +489,10 @@ struct FitBudgetResult {
     std::map<std::string, int> trimmed;
 };
 
-inline FitBudgetResult fitToBudget(const std::vector<Offer>& offers, size_t maxChars) {
+inline FitBudgetResult fitToBudget(const std::vector<Offer> &offers, size_t maxChars) {
     std::vector<size_t> sizes;
     sizes.reserve(offers.size());
-    for (const auto& o : offers) {
+    for (const auto &o : offers) {
         sizes.push_back(slimr::write_json(o).size());
     }
 
@@ -477,14 +501,15 @@ inline FitBudgetResult fitToBudget(const std::vector<Offer>& offers, size_t maxC
         bySite[offers[i].site].push_back(i);
     }
 
-    auto total = [&](const std::vector<size_t>& idxs) -> size_t {
+    auto total = [&](const std::vector<size_t> &idxs) -> size_t {
         size_t sum = 0;
-        for (size_t idx : idxs) sum += sizes[idx];
+        for (size_t idx : idxs)
+            sum += sizes[idx];
         return sum;
     };
 
     std::vector<std::pair<std::string, std::vector<size_t>>> sortedSites(bySite.begin(), bySite.end());
-    std::sort(sortedSites.begin(), sortedSites.end(), [&](const auto& a, const auto& b) {
+    std::sort(sortedSites.begin(), sortedSites.end(), [&](const auto &a, const auto &b) {
         return total(a.second) < total(b.second);
     });
 
@@ -493,12 +518,13 @@ inline FitBudgetResult fitToBudget(const std::vector<Offer>& offers, size_t maxC
     double left = static_cast<double>(maxChars);
     size_t sitesLeft = sortedSites.size();
 
-    for (const auto& [site, idxs] : sortedSites) {
+    for (const auto &[site, idxs] : sortedSites) {
         double share = left / static_cast<double>(sitesLeft);
         double used = 0;
         size_t kept = 0;
         for (size_t idx : idxs) {
-            if (kept > 0 && used + static_cast<double>(sizes[idx]) > share) break;
+            if (kept > 0 && used + static_cast<double>(sizes[idx]) > share)
+                break;
             used += static_cast<double>(sizes[idx]);
             kept++;
             keep[idx] = true;
@@ -527,42 +553,54 @@ struct ApplyFiltersResult {
 };
 
 inline ApplyFiltersResult applyFilters(
-    const std::vector<Offer>& offers,
-    const SearchFilters& filters,
-    const std::vector<std::string>& native = {},
-    const std::string& currency = "") {
+    const std::vector<Offer> &offers,
+    const SearchFilters &filters,
+    const std::vector<std::string> &native = {},
+    const std::string &currency = "") {
     auto want = [&](std::string_view key) -> bool {
-        if (key == "minPrice") return filters.minPrice.has_value() && std::find(native.begin(), native.end(), key) == native.end();
-        if (key == "maxPrice") return filters.maxPrice.has_value() && std::find(native.begin(), native.end(), key) == native.end();
-        if (key == "inStock") return filters.inStock.has_value() && std::find(native.begin(), native.end(), key) == native.end();
-        if (key == "brand") return filters.brand.has_value() && std::find(native.begin(), native.end(), key) == native.end();
+        if (key == "minPrice")
+            return filters.minPrice.has_value() && std::find(native.begin(), native.end(), key) == native.end();
+        if (key == "maxPrice")
+            return filters.maxPrice.has_value() && std::find(native.begin(), native.end(), key) == native.end();
+        if (key == "inStock")
+            return filters.inStock.has_value() && std::find(native.begin(), native.end(), key) == native.end();
+        if (key == "brand")
+            return filters.brand.has_value() && std::find(native.begin(), native.end(), key) == native.end();
         return false;
     };
 
-    auto priced = [&](const Offer& o) -> bool {
+    auto priced = [&](const Offer &o) -> bool {
         return currency.empty() || o.price.currency == currency;
     };
 
     int otherCurrencyCount = 0;
     if (want("minPrice") || want("maxPrice")) {
-        for (const auto& o : offers) {
-            if (!priced(o)) otherCurrencyCount++;
+        for (const auto &o : offers) {
+            if (!priced(o))
+                otherCurrencyCount++;
         }
     }
 
     std::vector<Offer> kept;
     for (auto o : offers) {
-        if (want("minPrice") && priced(o) && o.price.amount < *filters.minPrice) continue;
-        if (want("maxPrice") && priced(o) && o.price.amount > *filters.maxPrice) continue;
-        if (want("inStock") && filters.inStock.has_value() && *filters.inStock && o.inStock.has_value() && !*o.inStock) continue;
+        if (want("minPrice") && priced(o) && o.price.amount < *filters.minPrice)
+            continue;
+        if (want("maxPrice") && priced(o) && o.price.amount > *filters.maxPrice)
+            continue;
+        if (want("inStock") && filters.inStock.has_value() && *filters.inStock && o.inStock.has_value() && !*o.inStock)
+            continue;
         if (want("brand")) {
             std::string b = *filters.brand;
-            for (char& c : b) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            for (char &c : b)
+                c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
             std::string ob = o.brand.value_or("");
-            for (char& c : ob) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            for (char &c : ob)
+                c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
             std::string on = o.name;
-            for (char& c : on) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-            if (ob.find(b) == std::string::npos && on.find(b) == std::string::npos) continue;
+            for (char &c : on)
+                c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            if (ob.find(b) == std::string::npos && on.find(b) == std::string::npos)
+                continue;
         }
 
         if (o.quantity.has_value() && o.quantity->count > 1) {
@@ -578,30 +616,33 @@ inline ApplyFiltersResult applyFilters(
     return res;
 }
 
-inline std::string homeUrl(const SitePolicy& site) {
+inline std::string homeUrl(const SitePolicy &site) {
     auto searchIt = site.urls.find("search");
     std::vector<std::string> templates;
-    if (searchIt != site.urls.end()) templates.push_back(searchIt->second);
-    for (const auto& [_, tmpl] : site.urls) {
+    if (searchIt != site.urls.end())
+        templates.push_back(searchIt->second);
+    for (const auto &[_, tmpl] : site.urls) {
         templates.push_back(tmpl);
     }
-    for (const auto& tmpl : templates) {
-        if (tmpl.empty()) continue;
+    for (const auto &tmpl : templates) {
+        if (tmpl.empty())
+            continue;
         std::string s = tmpl;
         static const std::regex placeholderRe(R"(\{[^}]+\})");
         s = std::regex_replace(s, placeholderRe, "x");
         if (siteForUrl(s, {site}) != nullptr) {
-            CURLU* u = curl_url();
+            CURLU *u = curl_url();
             if (u) {
                 if (curl_url_set(u, CURLUPART_URL, s.c_str(), 0) == CURLUE_OK) {
-                    char* scheme = nullptr;
-                    char* host = nullptr;
-                    char* port = nullptr;
+                    char *scheme = nullptr;
+                    char *host = nullptr;
+                    char *port = nullptr;
                     curl_url_get(u, CURLUPART_SCHEME, &scheme, 0);
                     curl_url_get(u, CURLUPART_HOST, &host, 0);
                     curl_url_get(u, CURLUPART_PORT, &port, 0);
                     std::string origin = (scheme ? scheme : "https") + std::string("://") + (host ? host : "");
-                    if (port) origin += ":" + std::string(port);
+                    if (port)
+                        origin += ":" + std::string(port);
                     origin += "/";
                     curl_free(scheme);
                     curl_free(host);
@@ -619,21 +660,21 @@ inline std::string homeUrl(const SitePolicy& site) {
     return "https://localhost/";
 }
 
-inline std::string blockedPostsHint(Store& store, int64_t pageId, int64_t sinceMs) {
+inline std::string blockedPostsHint(Store &store, int64_t pageId, int64_t sinceMs) {
     auto events = store.guardEvents({pageId}, sinceMs - 1);
     static const std::regex noiseHost(
         R"(google-analytics|googletagmanager|doubleclick|facebook\.com|clarity\.ms|hotjar|sentry\.io|newrelic|datadog|onetrust|cookielaw|criteo|tiktok|klaviyo|bing\.com\/bat)",
         std::regex::icase);
 
     std::vector<std::string> urls;
-    for (const auto& g : events) {
+    for (const auto &g : events) {
         if (g.outcome == "blocked" && g.method != "GET" && !std::regex_search(g.url, noiseHost)) {
             std::string formatted = g.url;
-            CURLU* u = curl_url();
+            CURLU *u = curl_url();
             if (u) {
                 if (curl_url_set(u, CURLUPART_URL, g.url.c_str(), 0) == CURLUE_OK) {
-                    char* host = nullptr;
-                    char* path = nullptr;
+                    char *host = nullptr;
+                    char *path = nullptr;
                     curl_url_get(u, CURLUPART_HOST, &host, 0);
                     curl_url_get(u, CURLUPART_PATH, &path, 0);
                     if (host && path) {
@@ -649,11 +690,13 @@ inline std::string blockedPostsHint(Store& store, int64_t pageId, int64_t sinceM
             }
         }
     }
-    if (urls.size() > 5) urls.resize(5);
+    if (urls.size() > 5)
+        urls.resize(5);
     if (!urls.empty()) {
         std::string res = " (blocked POSTs: ";
         for (size_t i = 0; i < urls.size(); ++i) {
-            if (i > 0) res += ", ";
+            if (i > 0)
+                res += ", ";
             res += urls[i];
         }
         res += "; consider adding challenge endpoints to `readPosts`)";
@@ -663,8 +706,8 @@ inline std::string blockedPostsHint(Store& store, int64_t pageId, int64_t sinceM
 }
 
 class AdapterRegistry {
-public:
-    static AdapterRegistry& instance() {
+  public:
+    static AdapterRegistry &instance() {
         static AdapterRegistry reg;
         return reg;
     }
@@ -675,21 +718,23 @@ public:
         adapters_[std::move(id)] = std::move(adapter);
     }
 
-    SiteAdapter* get(std::string_view id) const {
+    SiteAdapter *get(std::string_view id) const {
         std::lock_guard<std::mutex> lock(mu_);
         auto it = adapters_.find(std::string(id));
-        if (it != adapters_.end()) return it->second.get();
+        if (it != adapters_.end())
+            return it->second.get();
         return nullptr;
     }
 
     std::vector<std::string> allIds() const {
         std::lock_guard<std::mutex> lock(mu_);
         std::vector<std::string> ids;
-        for (const auto& [k, _] : adapters_) ids.push_back(k);
+        for (const auto &[k, _] : adapters_)
+            ids.push_back(k);
         return ids;
     }
 
-private:
+  private:
     AdapterRegistry() = default;
     mutable std::mutex mu_;
     std::map<std::string, std::unique_ptr<SiteAdapter>> adapters_;

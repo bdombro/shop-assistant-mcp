@@ -9,17 +9,20 @@ inline std::optional<std::string> bingMerchantUrl(std::string_view href) {
     std::string u = getQueryParam(href, "u");
     if (!u.empty()) {
         std::string dec = urlDecode(base64UrlDecode(u));
-        if (!dec.empty()) target = dec;
+        if (!dec.empty())
+            target = dec;
     }
     std::string dest = getQueryParam(target, "ds_dest_url");
     if (!dest.empty()) {
         target = dest;
     }
 
-    if (!target.starts_with("https://")) return std::nullopt;
+    if (!target.starts_with("https://"))
+        return std::nullopt;
 
-    CURLU* curlUrl = curl_url();
-    if (!curlUrl) return std::nullopt;
+    CURLU *curlUrl = curl_url();
+    if (!curlUrl)
+        return std::nullopt;
 
     if (curl_url_set(curlUrl, CURLUPART_URL, target.c_str(), 0) != CURLUE_OK) {
         curl_url_cleanup(curlUrl);
@@ -27,7 +30,7 @@ inline std::optional<std::string> bingMerchantUrl(std::string_view href) {
     }
     curl_url_set(curlUrl, CURLUPART_FRAGMENT, nullptr, 0);
 
-    char* hostPtr = nullptr;
+    char *hostPtr = nullptr;
     if (curl_url_get(curlUrl, CURLUPART_HOST, &hostPtr, 0) != CURLUE_OK || !hostPtr) {
         curl_url_cleanup(curlUrl);
         return std::nullopt;
@@ -36,7 +39,8 @@ inline std::optional<std::string> bingMerchantUrl(std::string_view href) {
     curl_free(hostPtr);
 
     std::string hostLower = host;
-    for (char& c : hostLower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (char &c : hostLower)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 
     if (hostLower == "bing.com" || hostLower.ends_with(".bing.com")) {
         curl_url_cleanup(curlUrl);
@@ -47,7 +51,7 @@ inline std::optional<std::string> bingMerchantUrl(std::string_view href) {
     if (isEbay) {
         curl_url_set(curlUrl, CURLUPART_QUERY, nullptr, 0);
     } else {
-        char* queryPtr = nullptr;
+        char *queryPtr = nullptr;
         if (curl_url_get(curlUrl, CURLUPART_QUERY, &queryPtr, 0) == CURLUE_OK && queryPtr) {
             std::string query = queryPtr;
             curl_free(queryPtr);
@@ -60,7 +64,8 @@ inline std::optional<std::string> bingMerchantUrl(std::string_view href) {
             std::istringstream iss(query);
             std::string param;
             while (std::getline(iss, param, '&')) {
-                if (param.empty()) continue;
+                if (param.empty())
+                    continue;
                 size_t eq = param.find('=');
                 std::string k = (eq == std::string::npos) ? param : param.substr(0, eq);
                 std::string v = (eq == std::string::npos) ? "" : param.substr(eq + 1);
@@ -74,7 +79,8 @@ inline std::optional<std::string> bingMerchantUrl(std::string_view href) {
             } else {
                 std::string newQuery;
                 for (size_t i = 0; i < kept.size(); ++i) {
-                    if (i > 0) newQuery += "&";
+                    if (i > 0)
+                        newQuery += "&";
                     newQuery += kept[i].first;
                     if (!kept[i].second.empty()) {
                         newQuery += "=" + kept[i].second;
@@ -85,7 +91,7 @@ inline std::optional<std::string> bingMerchantUrl(std::string_view href) {
         }
     }
 
-    char* fullPtr = nullptr;
+    char *fullPtr = nullptr;
     std::string out;
     if (curl_url_get(curlUrl, CURLUPART_URL, &fullPtr, 0) == CURLUE_OK && fullPtr) {
         out = fullPtr;
@@ -93,16 +99,19 @@ inline std::optional<std::string> bingMerchantUrl(std::string_view href) {
     }
     curl_url_cleanup(curlUrl);
 
-    if (out.empty()) return std::nullopt;
+    if (out.empty())
+        return std::nullopt;
     return out;
 }
 
-inline std::string bingFullText(const std::optional<Node>& el) {
-    if (!el || !*el) return "";
+inline std::string bingFullText(const std::optional<Node> &el) {
+    if (!el || !*el)
+        return "";
     auto titleEl = el->querySelector("[title]");
     if (titleEl) {
         auto t = titleEl->attr("title");
-        if (t.has_value() && !t->empty()) return cleanText(*t);
+        if (t.has_value() && !t->empty())
+            return cleanText(*t);
     }
     return cleanText(el->text());
 }
@@ -112,15 +121,17 @@ inline SearchResult parseBingSearch(std::string_view html, std::string_view chec
     std::vector<Offer> offers;
 
     auto cards = document.querySelectorAll(".br-gOffCard");
-    for (const auto& card : cards) {
+    for (const auto &card : cards) {
         auto offerIdOpt = card.attr("data-offerid");
-        if (!offerIdOpt.has_value() || offerIdOpt->empty()) continue;
+        if (!offerIdOpt.has_value() || offerIdOpt->empty())
+            continue;
         std::string offerId = *offerIdOpt;
 
         auto link = card.querySelector("a.br-offLink");
         std::string href = link ? link->attr("href").value_or("") : "";
         auto urlOpt = bingMerchantUrl(href);
-        if (!urlOpt.has_value()) continue;
+        if (!urlOpt.has_value())
+            continue;
         std::string url = *urlOpt;
 
         std::string priceText = cleanText(card.querySelector(".br-price"));
@@ -140,10 +151,12 @@ inline SearchResult parseBingSearch(std::string_view html, std::string_view chec
         }
 
         auto amount = parsePrice(amountStr);
-        if (!amount.has_value()) continue;
+        if (!amount.has_value())
+            continue;
 
         std::string name = bingFullText(card.querySelector(".br-offTtl"));
-        if (name.empty()) continue;
+        if (name.empty())
+            continue;
 
         std::optional<Rating> rating;
         auto ratingEl = card.querySelector(".sa_rating");
@@ -153,8 +166,9 @@ inline SearchResult parseBingSearch(std::string_view html, std::string_view chec
             std::smatch rm;
             if (std::regex_search(rTxt, rm, ratingRe)) {
                 try {
-                    rating = Rating{ std::stod(rm[1].str()), 5.0, std::stoi(rm[2].str()), std::nullopt };
-                } catch (...) {}
+                    rating = Rating{std::stod(rm[1].str()), 5.0, std::stoi(rm[2].str()), std::nullopt};
+                } catch (...) {
+                }
             }
         }
 
@@ -176,7 +190,8 @@ inline SearchResult parseBingSearch(std::string_view html, std::string_view chec
         }
 
         std::string seller = bingFullText(card.querySelector(".br-offSlrTxt"));
-        if (seller.empty()) seller = "unknown";
+        if (seller.empty())
+            seller = "unknown";
 
         Offer offer;
         offer.site = "bing";
@@ -185,20 +200,21 @@ inline SearchResult parseBingSearch(std::string_view html, std::string_view chec
         offer.name = name;
         offer.seller = seller;
         offer.condition = "unknown";
-        offer.price = Price{ *amount, currency, std::nullopt, true };
-        if (rating.has_value()) offer.rating = rating;
+        offer.price = Price{*amount, currency, std::nullopt, true};
+        if (rating.has_value())
+            offer.rating = rating;
         offer.delivery = free
-            ? Delivery{ "available", std::nullopt, std::nullopt, 0.0, "listing" }
-            : Delivery{ "unknown", std::nullopt, std::nullopt, std::nullopt, "listing" };
+                             ? Delivery{"available", std::nullopt, std::nullopt, 0.0, "listing"}
+                             : Delivery{"unknown", std::nullopt, std::nullopt, std::nullopt, "listing"};
         offer.details = std::move(details);
         offer.checkedAt = std::string(checkedAt);
         offers.push_back(std::move(offer));
     }
-    return SearchResult{ std::move(offers), std::nullopt, {} };
+    return SearchResult{std::move(offers), std::nullopt, {}};
 }
 
 class BingAdapter : public SiteAdapter {
-public:
+  public:
     std::string id() const override { return "bing"; }
     bool deliveryOnly() const override { return true; }
 
@@ -206,7 +222,7 @@ public:
         return "Bing Shop matches loosely across merchants and mostly lists paid placements; use the product name and model, then verify on the merchant's site.";
     }
 
-    SearchResult search(SiteContext& ctx, const SearchQuery& q) override {
+    SearchResult search(SiteContext &ctx, const SearchQuery &q) override {
         std::string url = "https://www.bing.com/shop?q=" + urlEncode(q.query) + "&cc=IE&setlang=en";
         FetchInit init;
         init.document = true;
@@ -214,7 +230,7 @@ public:
         return parseBingSearch(html, "2026-10-15T00:00:00Z", q.query);
     }
 
-    std::vector<Offer> offer(SiteContext& ctx, const OfferRef& ref, const OfferOptions& options) override {
+    std::vector<Offer> offer(SiteContext &ctx, const OfferRef &ref, const OfferOptions &options) override {
         (void)options;
         std::string id = ref.id.value_or("");
         size_t split = id.find(':');
@@ -227,9 +243,9 @@ public:
         init.document = true;
         std::string html = ctx.fetchText(url, init);
         auto res = parseBingSearch(html, "2026-10-15T00:00:00Z", query);
-        for (auto& o : res.offers) {
+        for (auto &o : res.offers) {
             if (o.id == id) {
-                return { std::move(o) };
+                return {std::move(o)};
             }
         }
         throw std::runtime_error("bing: the listing " + id.substr(0, split) + " is no longer in Bing Shop results for \"" + query + "\": re-check on the merchant's site");

@@ -1,8 +1,8 @@
 #pragma once
 
 #include "dom.hpp"
-#include "policy.hpp"
 #include "markdown.hpp"
+#include "policy.hpp"
 
 #include <regex>
 #include <string>

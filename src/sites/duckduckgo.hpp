@@ -46,7 +46,8 @@ inline std::string cleanMerchantUrl(std::string_view href) {
                 kept.emplace_back(pair);
             }
         }
-        if (amp == std::string_view::npos) break;
+        if (amp == std::string_view::npos)
+            break;
         query = query.substr(amp + 1);
     }
 
@@ -55,7 +56,8 @@ inline std::string cleanMerchantUrl(std::string_view href) {
     }
     std::string res = base + "?";
     for (size_t i = 0; i < kept.size(); ++i) {
-        if (i > 0) res += "&";
+        if (i > 0)
+            res += "&";
         res += kept[i];
     }
     return res;
@@ -63,18 +65,22 @@ inline std::string cleanMerchantUrl(std::string_view href) {
 
 inline std::optional<MerchantUrlResult> merchantUrl(std::string_view tracker) {
     auto spldStr = getUrlParam(tracker, "spld");
-    if (!spldStr) return std::nullopt;
+    if (!spldStr)
+        return std::nullopt;
     auto spld = slimr::parse_json<slimr::Json>(*spldStr);
-    if (!spld || !spld->is_object() || !spld->contains("u")) return std::nullopt;
+    if (!spld || !spld->is_object() || !spld->contains("u"))
+        return std::nullopt;
     std::string u = (*spld)["u"].get<std::string>();
-    if (u.empty()) return std::nullopt;
+    if (u.empty())
+        return std::nullopt;
 
     std::string targetUrl;
     if (u.starts_with("a1")) {
         std::string wrapped = base64UrlDecode(u.substr(2));
         if (wrapped.starts_with("http")) {
             auto innerUrl = getUrlParam(wrapped, "url");
-            if (innerUrl) targetUrl = *innerUrl;
+            if (innerUrl)
+                targetUrl = *innerUrl;
         } else {
             targetUrl = urlDecode(base64UrlDecode(u));
         }
@@ -82,13 +88,15 @@ inline std::optional<MerchantUrlResult> merchantUrl(std::string_view tracker) {
         targetUrl = urlDecode(base64UrlDecode(u));
     }
 
-    if (targetUrl.empty()) return std::nullopt;
+    if (targetUrl.empty())
+        return std::nullopt;
 
     std::string host = getUrlHost(targetUrl);
     static const std::regex redirectHostRe(R"(s\.click\.aliexpress\.com|delupe\.ie)");
     if (std::regex_search(host, redirectHostRe)) {
         auto dl = getUrlParam(targetUrl, "dl_target_url");
-        if (!dl) dl = getUrlParam(targetUrl, "uri");
+        if (!dl)
+            dl = getUrlParam(targetUrl, "uri");
         if (dl && !dl->empty()) {
             targetUrl = *dl;
             while (targetUrl.find("http%3A") != std::string::npos || targetUrl.find("http%3a") != std::string::npos ||
@@ -123,12 +131,17 @@ struct PriceTextResult {
 inline std::optional<PriceTextResult> parsePriceText(std::string_view raw) {
     std::string s = cleanText(raw);
     auto amount = core::parsePrice(s);
-    if (s.empty() || !amount) return std::nullopt;
+    if (s.empty() || !amount)
+        return std::nullopt;
     std::string currency;
-    if (s.find("€") != std::string::npos) currency = "EUR";
-    else if (s.find("£") != std::string::npos) currency = "GBP";
-    else if (s.find("$") != std::string::npos) currency = "USD";
-    else return std::nullopt;
+    if (s.find("€") != std::string::npos)
+        currency = "EUR";
+    else if (s.find("£") != std::string::npos)
+        currency = "GBP";
+    else if (s.find("$") != std::string::npos)
+        currency = "USD";
+    else
+        return std::nullopt;
     return PriceTextResult{*amount, currency};
 }
 
@@ -138,16 +151,20 @@ inline std::string slugWords(std::string_view url) {
     size_t scheme = path.find("://");
     if (scheme != std::string_view::npos) {
         size_t slash = path.find('/', scheme + 3);
-        if (slash != std::string_view::npos) path = path.substr(slash);
-        else path = "";
+        if (slash != std::string_view::npos)
+            path = path.substr(slash);
+        else
+            path = "";
     }
     std::string last;
     size_t start = 0;
     while (start < path.size()) {
         size_t next = path.find('/', start);
         std::string_view seg = (next == std::string_view::npos) ? path.substr(start) : path.substr(start, next - start);
-        if (!seg.empty()) last = std::string(seg);
-        if (next == std::string_view::npos) break;
+        if (!seg.empty())
+            last = std::string(seg);
+        if (next == std::string_view::npos)
+            break;
         start = next + 1;
     }
     static const std::regex extRe(R"(\.\w{2,5}$)");
@@ -161,13 +178,15 @@ inline std::string slugWords(std::string_view url) {
         std::string w = it->str();
         if (w.size() > 1 && !std::regex_match(w, hexHashRe)) {
             words.push_back(w);
-            if (words.size() == 8) break;
+            if (words.size() == 8)
+                break;
         }
     }
     if (!words.empty()) {
         std::string res;
         for (size_t i = 0; i < words.size(); ++i) {
-            if (i > 0) res += " ";
+            if (i > 0)
+                res += " ";
             res += words[i];
         }
         return res;
@@ -175,24 +194,27 @@ inline std::string slugWords(std::string_view url) {
     return getUrlHost(url);
 }
 
-inline std::vector<core::Offer> parseSearch(const slimr::Json& json, const std::string& checkedAt) {
+inline std::vector<core::Offer> parseSearch(const slimr::Json &json, const std::string &checkedAt) {
     std::vector<core::Offer> offers;
     if (!json.is_object() || !json.contains("results") || !json["results"].is_array()) {
         return offers;
     }
-    for (const auto& row : json["results"].get<slimr::Json::array_t>()) {
-        if (!row.is_object()) continue;
+    for (const auto &row : json["results"].get<slimr::Json::array_t>()) {
+        if (!row.is_object())
+            continue;
         std::string rawUrl = row.contains("url") && row["url"].is_string() ? row["url"].get<std::string>() : "";
         auto merchant = merchantUrl(rawUrl);
         std::string lowPriceStr = row.contains("low_price") && row["low_price"].is_string() ? row["low_price"].get<std::string>() : "";
         std::string priceStr = row.contains("price") && row["price"].is_string() ? row["price"].get<std::string>() : "";
         auto price = parsePriceText(lowPriceStr);
-        if (!price) price = parsePriceText(priceStr);
+        if (!price)
+            price = parsePriceText(priceStr);
         std::optional<PriceTextResult> was;
         if (!lowPriceStr.empty()) {
             was = parsePriceText(priceStr);
         }
-        if (!merchant || !price) continue;
+        if (!merchant || !price)
+            continue;
 
         std::map<std::string, slimr::Json> details;
         details["Merchant"] = slimr::Json(merchant->host);
@@ -232,7 +254,8 @@ inline std::vector<core::Offer> parseSearch(const slimr::Json& json, const std::
                 rating.scale = 5.0;
                 if (row.contains("reviews") && row["reviews"].is_number()) {
                     auto cnt = row["reviews"].as<int>();
-                    if (cnt > 0) rating.count = cnt;
+                    if (cnt > 0)
+                        rating.count = cnt;
                 }
                 offer.rating = rating;
             }
@@ -248,14 +271,14 @@ inline std::vector<core::Offer> parseSearch(const slimr::Json& json, const std::
 }
 
 class DuckDuckGo : public core::SiteAdapter {
-public:
+  public:
     std::string id() const override { return "duckduckgo"; }
     bool deliveryOnly() const override { return true; }
     std::string matchHint() const override {
         return "DuckDuckGo Shopping (Bing's feed) matches loosely and returns many unrelated items; use the product's brand and model, and check each row's merchant.";
     }
 
-    core::SearchResult search(core::SiteContext& ctx, const core::SearchQuery& q) override {
+    core::SearchResult search(core::SiteContext &ctx, const core::SearchQuery &q) override {
         std::string checkedAt = "2026-11-10T00:00:00Z";
         std::string home = ctx.fetchText("https://duckduckgo.com/?q=" + urlEncode(q.query) + "&ia=shopping&iax=shopping");
         auto vqd = parseVqd(home);
@@ -274,7 +297,7 @@ public:
                 ctx.warn("duckduckgo: empty shopping response");
             }
             auto pageOffers = parseSearch(json, checkedAt);
-            for (auto& o : pageOffers) {
+            for (auto &o : pageOffers) {
                 offers.push_back(std::move(o));
             }
             if (json.is_object() && json.contains("next") && json["next"].is_string()) {
@@ -285,9 +308,9 @@ public:
         }
 
         std::vector<core::Offer> deduped;
-        for (auto& o : offers) {
+        for (auto &o : offers) {
             bool found = false;
-            for (const auto& existing : deduped) {
+            for (const auto &existing : deduped) {
                 if (existing.id == o.id) {
                     found = true;
                     break;
@@ -300,7 +323,7 @@ public:
         return core::SearchResult{.offers = std::move(deduped)};
     }
 
-    std::vector<core::Offer> offer(core::SiteContext& ctx, const core::OfferRef& ref, const core::OfferOptions& options) override {
+    std::vector<core::Offer> offer(core::SiteContext &ctx, const core::OfferRef &ref, const core::OfferOptions &options) override {
         (void)options;
         std::string raw = ref.id.value_or(ref.url.value_or(""));
         static const std::regex httpRe(R"(^https?://)");
@@ -309,7 +332,7 @@ public:
         }
         std::string clean = cleanMerchantUrl(raw);
         auto sr = search(ctx, core::SearchQuery{.query = slugWords(clean), .limit = 30});
-        for (const auto& o : sr.offers) {
+        for (const auto &o : sr.offers) {
             if (o.id == clean) {
                 return {o};
             }

@@ -26,7 +26,8 @@ inline Delivery deliveryFor(std::string_view rule, std::optional<bool> inStock) 
         return Delivery{.status = "unavailable", .source = "product"};
     }
     std::string r(rule);
-    for (char& c : r) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (char &c : r)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     if (r.starts_with("small")) {
         return Delivery{.status = "available", .minDays = 3, .maxDays = 4, .cost = 9.99, .source = "site default"};
     }
@@ -41,23 +42,29 @@ struct ParsedPrice {
     std::optional<double> exVat;
 };
 
-inline std::optional<ParsedPrice> priceFrom(const Node& root) {
-    if (!root) return std::nullopt;
+inline std::optional<ParsedPrice> priceFrom(const Node &root) {
+    if (!root)
+        return std::nullopt;
     auto getAmount = [&](std::string_view type) -> std::optional<double> {
         std::string sel = "span[data-price-type=\"" + std::string(type) + "\"]";
         auto span = root.querySelector(sel);
-        if (!span) return std::nullopt;
+        if (!span)
+            return std::nullopt;
         auto attr = span->attr("data-price-amount");
-        if (!attr) return std::nullopt;
+        if (!attr)
+            return std::nullopt;
         try {
             double v = std::stod(*attr);
-            if (std::isfinite(v) && v > 0) return v;
-        } catch (...) {}
+            if (std::isfinite(v) && v > 0)
+                return v;
+        } catch (...) {
+        }
         return std::nullopt;
     };
 
     auto amount = getAmount("finalPrice");
-    if (!amount) return std::nullopt;
+    if (!amount)
+        return std::nullopt;
     auto was = getAmount("oldPrice");
     auto exVat = getAmount("basePrice");
 
@@ -91,11 +98,13 @@ inline SearchResult parseTjomahonySearch(std::string_view html, std::string_view
     }
 
     std::vector<Offer> offers;
-    for (const auto& card : items) {
+    for (const auto &card : items) {
         auto marker = card.querySelector("a.marker");
-        if (!marker) continue;
+        if (!marker)
+            continue;
         auto href = marker->attr("href");
-        if (!href) continue;
+        if (!href)
+            continue;
 
         auto nameEl = card.querySelector(".product-name");
         std::string name = nameEl ? text(nameEl->text()) : "";
@@ -104,14 +113,17 @@ inline SearchResult parseTjomahonySearch(std::string_view html, std::string_view
         std::string init = skuEl ? skuEl->attr("data-mage-init").value_or("") : "";
         static const std::regex skuRe(R"re("productSku":"([^"]+)")re");
         std::smatch m;
-        if (!std::regex_search(init, m, skuRe)) continue;
+        if (!std::regex_search(init, m, skuRe))
+            continue;
         std::string sku = m[1].str();
 
         auto p = priceFrom(card);
-        if (name.empty() || sku.empty() || !p) continue;
+        if (name.empty() || sku.empty() || !p)
+            continue;
 
         std::string skuUpper = sku;
-        for (char& c : skuUpper) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+        for (char &c : skuUpper)
+            c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
 
         std::map<std::string, slimr::Json> details;
         if (p->exVat) {
@@ -136,8 +148,10 @@ inline SearchResult parseTjomahonySearch(std::string_view html, std::string_view
         std::string t = text(totalEls.back().text());
         try {
             int val = std::stoi(t);
-            if (val > 0) total = val;
-        } catch (...) {}
+            if (val > 0)
+                total = val;
+        } catch (...) {
+        }
     }
 
     return SearchResult{.offers = std::move(offers), .total = total};
@@ -166,11 +180,11 @@ inline Offer parseTjomahonyProduct(std::string_view html, std::string_view check
     if (!ldOpt || sku.empty() || !p) {
         throw std::runtime_error("tjomahony: no product data on the page (layout changed?)");
     }
-    const auto& ld = *ldOpt;
+    const auto &ld = *ldOpt;
 
     std::map<std::string, std::string> specs;
     auto trs = doc.querySelectorAll("#product-attribute-specs-table tr");
-    for (const auto& tr : trs) {
+    for (const auto &tr : trs) {
         auto th = tr.querySelector("th");
         auto td = tr.querySelector("td");
         if (th && td) {
@@ -217,7 +231,7 @@ inline Offer parseTjomahonyProduct(std::string_view html, std::string_view check
     if (p->exVat) {
         details["Price ex VAT"] = *p->exVat;
     }
-    for (const auto& [k, v] : specs) {
+    for (const auto &[k, v] : specs) {
         details[k] = v;
     }
 
@@ -226,7 +240,8 @@ inline Offer parseTjomahonyProduct(std::string_view html, std::string_view check
         auto descDoc = Document::parse("<div>" + rawDesc + "</div>");
         std::string cleanedDesc = descDoc.body() ? text(descDoc.body().text()) : "";
         if (!cleanedDesc.empty()) {
-            if (cleanedDesc.size() > 600) cleanedDesc = cleanedDesc.substr(0, 600);
+            if (cleanedDesc.size() > 600)
+                cleanedDesc = cleanedDesc.substr(0, 600);
             details["Description"] = cleanedDesc;
         }
     }
@@ -234,9 +249,9 @@ inline Offer parseTjomahonyProduct(std::string_view html, std::string_view check
     std::optional<std::string> category;
     auto crumbs = findLd(blocks, "BreadcrumbList");
     if (crumbs && crumbs->is_object() && crumbs->contains("itemListElement") && (*crumbs)["itemListElement"].is_array()) {
-        auto& arr = (*crumbs)["itemListElement"].get<slimr::Json::array_t>();
+        auto &arr = (*crumbs)["itemListElement"].get<slimr::Json::array_t>();
         if (arr.size() >= 2) {
-            auto& secondLast = arr[arr.size() - 2];
+            auto &secondLast = arr[arr.size() - 2];
             if (secondLast.is_object() && secondLast.contains("item") && secondLast["item"].is_object() &&
                 secondLast["item"].contains("name") && secondLast["item"]["name"].is_string()) {
                 category = text(secondLast["item"]["name"].get<std::string>());
@@ -250,7 +265,8 @@ inline Offer parseTjomahonyProduct(std::string_view html, std::string_view check
     }
     if (url.empty()) {
         auto canon = doc.querySelector("link[rel=\"canonical\"]");
-        if (canon) url = canon->attr("href").value_or("");
+        if (canon)
+            url = canon->attr("href").value_or("");
     }
 
     std::string name = ld.is_object() && ld.contains("name") && ld["name"].is_string() ? text(ld["name"].get<std::string>()) : "";
@@ -263,7 +279,8 @@ inline Offer parseTjomahonyProduct(std::string_view html, std::string_view check
     }
 
     std::string skuUpper = sku;
-    for (char& c : skuUpper) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    for (char &c : skuUpper)
+        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
 
     Offer o;
     o.site = "tjomahony";
@@ -281,7 +298,7 @@ inline Offer parseTjomahonyProduct(std::string_view html, std::string_view check
     return o;
 }
 
-inline std::vector<Pickup> parseTjomahonyStock(std::string_view html, const Near& near) {
+inline std::vector<Pickup> parseTjomahonyStock(std::string_view html, const Near &near) {
     using namespace tjomahony_internal;
     std::string tag = "<script type=\"text/x-magento-init\">";
     size_t at = html.find("\"kickModelSelCollectionBranch\"");
@@ -304,17 +321,22 @@ inline std::vector<Pickup> parseTjomahonyStock(std::string_view html, const Near
         throw std::runtime_error("tjomahony: failed to parse branch list json");
     }
 
-    auto& root = *parsed;
-    if (!root.contains("*") || !root["*"].is_object()) return {};
-    auto& star = root["*"];
-    if (!star.contains("Magento_Ui/js/core/app") || !star["Magento_Ui/js/core/app"].is_object()) return {};
-    auto& app = star["Magento_Ui/js/core/app"];
-    if (!app.contains("components") || !app["components"].is_object()) return {};
-    auto& comps = app["components"];
-    if (!comps.contains("kickModelSelCollectionBranch") || !comps["kickModelSelCollectionBranch"].is_object()) return {};
-    auto& branchComp = comps["kickModelSelCollectionBranch"];
-    if (!branchComp.contains("config") || !branchComp["config"].is_object()) return {};
-    auto& config = branchComp["config"];
+    auto &root = *parsed;
+    if (!root.contains("*") || !root["*"].is_object())
+        return {};
+    auto &star = root["*"];
+    if (!star.contains("Magento_Ui/js/core/app") || !star["Magento_Ui/js/core/app"].is_object())
+        return {};
+    auto &app = star["Magento_Ui/js/core/app"];
+    if (!app.contains("components") || !app["components"].is_object())
+        return {};
+    auto &comps = app["components"];
+    if (!comps.contains("kickModelSelCollectionBranch") || !comps["kickModelSelCollectionBranch"].is_object())
+        return {};
+    auto &branchComp = comps["kickModelSelCollectionBranch"];
+    if (!branchComp.contains("config") || !branchComp["config"].is_object())
+        return {};
+    auto &config = branchComp["config"];
 
     std::optional<std::string> prodIdStr;
     if (config.contains("productId") && config["productId"].is_number()) {
@@ -323,22 +345,30 @@ inline std::vector<Pickup> parseTjomahonyStock(std::string_view html, const Near
 
     std::vector<Pickup> rows;
     if (config.contains("branchList") && config["branchList"].is_array()) {
-        for (const auto& b : config["branchList"].get<slimr::Json::array_t>()) {
-            if (!b.is_object()) continue;
+        for (const auto &b : config["branchList"].get<slimr::Json::array_t>()) {
+            if (!b.is_object())
+                continue;
             double lat = 0.0, lng = 0.0;
             if (b.contains("lat") && b["lat"].is_string()) {
-                try { lat = std::stod(b["lat"].get<std::string>()); } catch (...) {}
+                try {
+                    lat = std::stod(b["lat"].get<std::string>());
+                } catch (...) {
+                }
             }
             if (b.contains("lng") && b["lng"].is_string()) {
-                try { lng = std::stod(b["lng"].get<std::string>()); } catch (...) {}
+                try {
+                    lng = std::stod(b["lng"].get<std::string>());
+                } catch (...) {
+                }
             }
             double km = std::round(distanceKm(near, lat, lng) * 10.0) / 10.0;
             std::string store = b.contains("name") && b["name"].is_string() ? text(b["name"].get<std::string>()) : "";
-            if (store.empty() || !(km <= near.radiusKm)) continue;
+            if (store.empty() || !(km <= near.radiusKm))
+                continue;
 
             std::optional<int> qty;
             if (b.contains("stock") && b["stock"].is_object()) {
-                auto& stockObj = b["stock"];
+                auto &stockObj = b["stock"];
                 if (prodIdStr && stockObj.contains(*prodIdStr) && stockObj[*prodIdStr].is_number()) {
                     qty = static_cast<int>(stockObj[*prodIdStr].get<double>());
                 } else if (!stockObj.get<slimr::Json::object_t>().empty()) {
@@ -351,7 +381,8 @@ inline std::vector<Pickup> parseTjomahonyStock(std::string_view html, const Near
 
             std::string status = "unknown";
             if (qty.has_value()) {
-                status = (*qty <= 0) ? "out" : (*qty <= 2) ? "low" : "in stock";
+                status = (*qty <= 0) ? "out" : (*qty <= 2) ? "low"
+                                                           : "in stock";
             }
 
             rows.push_back(Pickup{
@@ -359,28 +390,27 @@ inline std::vector<Pickup> parseTjomahonyStock(std::string_view html, const Near
                 .km = km,
                 .status = std::move(status),
                 .qty = qty,
-                .readyBy = std::nullopt
-            });
+                .readyBy = std::nullopt});
         }
     }
 
-    std::sort(rows.begin(), rows.end(), [](const Pickup& a, const Pickup& b) {
+    std::sort(rows.begin(), rows.end(), [](const Pickup &a, const Pickup &b) {
         return a.km < b.km;
     });
     return rows;
 }
 
 class TjOMahonyAdapter : public SiteAdapter {
-public:
+  public:
     std::string id() const override { return "tjomahony"; }
     std::string matchHint() const override {
         return "TJ O'Mahony matches search words loosely and returns related items too; "
                "check the titles, and try the product type or the model code alone.";
     }
 
-    SearchResult search(SiteContext& ctx, const SearchQuery& query) override {
+    SearchResult search(SiteContext &ctx, const SearchQuery &query) override {
         std::string enc = slimr::url_encode(query.query);
-        for (size_t pos = 0; (pos = enc.find("%20", pos)) != std::string::npos; ) {
+        for (size_t pos = 0; (pos = enc.find("%20", pos)) != std::string::npos;) {
             enc.replace(pos, 3, "+");
             pos += 1;
         }
@@ -389,18 +419,21 @@ public:
         return parseTjomahonySearch(html, "");
     }
 
-    std::vector<Offer> offer(SiteContext& ctx, const OfferRef& ref, const OfferOptions& options) override {
+    std::vector<Offer> offer(SiteContext &ctx, const OfferRef &ref, const OfferOptions &options) override {
         (void)options;
         std::string url = ref.url.value_or("");
         if (url.empty()) {
             std::string id = ref.id.value_or("");
-            if (id.empty()) throw std::runtime_error("tjomahony: give a product id or url");
+            if (id.empty())
+                throw std::runtime_error("tjomahony: give a product id or url");
             auto sr = search(ctx, SearchQuery{.query = id, .filters = {}, .limit = 20});
             std::string idLower = id;
-            for (char& c : idLower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-            for (const auto& o : sr.offers) {
+            for (char &c : idLower)
+                c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            for (const auto &o : sr.offers) {
                 std::string oIdLower = o.id;
-                for (char& c : oIdLower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+                for (char &c : oIdLower)
+                    c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
                 if (oIdLower == idLower) {
                     url = o.url;
                     break;
@@ -414,7 +447,7 @@ public:
         return {parseTjomahonyProduct(html, "")};
     }
 
-    std::vector<Offer> pickup(SiteContext& ctx, const std::vector<Offer>& offers, const Near& near) override {
+    std::vector<Offer> pickup(SiteContext &ctx, const std::vector<Offer> &offers, const Near &near) override {
         std::vector<Offer> out;
         out.reserve(offers.size());
         for (auto offer : offers) {

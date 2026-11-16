@@ -17,34 +17,47 @@
 
 namespace shop::core {
 
-enum class ReadState { on, ask, off };
-enum class WriteState { ask, off };
+enum class ReadState { on,
+                       ask,
+                       off };
+enum class WriteState { ask,
+                        off };
 
 inline std::string readStateToString(ReadState s) {
     switch (s) {
-        case ReadState::on: return "on";
-        case ReadState::ask: return "ask";
-        case ReadState::off: return "off";
+    case ReadState::on:
+        return "on";
+    case ReadState::ask:
+        return "ask";
+    case ReadState::off:
+        return "off";
     }
 }
 
 inline ReadState stringToReadState(std::string_view s) {
-    if (s == "on") return ReadState::on;
-    if (s == "ask") return ReadState::ask;
-    if (s == "off") return ReadState::off;
+    if (s == "on")
+        return ReadState::on;
+    if (s == "ask")
+        return ReadState::ask;
+    if (s == "off")
+        return ReadState::off;
     throw std::runtime_error("invalid ReadState: " + std::string(s));
 }
 
 inline std::string writeStateToString(WriteState s) {
     switch (s) {
-        case WriteState::ask: return "ask";
-        case WriteState::off: return "off";
+    case WriteState::ask:
+        return "ask";
+    case WriteState::off:
+        return "off";
     }
 }
 
 inline WriteState stringToWriteState(std::string_view s) {
-    if (s == "ask") return WriteState::ask;
-    if (s == "off") return WriteState::off;
+    if (s == "ask")
+        return WriteState::ask;
+    if (s == "off")
+        return WriteState::off;
     throw std::runtime_error("invalid WriteState: " + std::string(s));
 }
 
@@ -66,26 +79,42 @@ enum class PageKind {
 
 inline std::string pageKindToString(PageKind k) {
     switch (k) {
-        case PageKind::search: return "search";
-        case PageKind::product: return "product";
-        case PageKind::reviews: return "reviews";
-        case PageKind::offers: return "offers";
-        case PageKind::stock: return "stock";
-        case PageKind::departments: return "departments";
-        case PageKind::policy: return "policy";
-        case PageKind::other: return "other";
+    case PageKind::search:
+        return "search";
+    case PageKind::product:
+        return "product";
+    case PageKind::reviews:
+        return "reviews";
+    case PageKind::offers:
+        return "offers";
+    case PageKind::stock:
+        return "stock";
+    case PageKind::departments:
+        return "departments";
+    case PageKind::policy:
+        return "policy";
+    case PageKind::other:
+        return "other";
     }
 }
 
 inline PageKind stringToPageKind(std::string_view s) {
-    if (s == "search") return PageKind::search;
-    if (s == "product") return PageKind::product;
-    if (s == "reviews") return PageKind::reviews;
-    if (s == "offers") return PageKind::offers;
-    if (s == "stock") return PageKind::stock;
-    if (s == "departments") return PageKind::departments;
-    if (s == "policy") return PageKind::policy;
-    if (s == "other") return PageKind::other;
+    if (s == "search")
+        return PageKind::search;
+    if (s == "product")
+        return PageKind::product;
+    if (s == "reviews")
+        return PageKind::reviews;
+    if (s == "offers")
+        return PageKind::offers;
+    if (s == "stock")
+        return PageKind::stock;
+    if (s == "departments")
+        return PageKind::departments;
+    if (s == "policy")
+        return PageKind::policy;
+    if (s == "other")
+        return PageKind::other;
     throw std::runtime_error("invalid PageKind: " + std::string(s));
 }
 
@@ -129,32 +158,39 @@ const std::string UNTRUSTED_CONTENT_WARNING =
 const std::string WITHHELD_NOTICE = "[withheld: possible prompt injection]";
 
 inline std::string hostOf(std::string_view url_str) {
-    CURLU* u = curl_url();
-    if (!u) return "";
+    CURLU *u = curl_url();
+    if (!u)
+        return "";
     if (curl_url_set(u, CURLUPART_URL, std::string(url_str).c_str(), 0) != CURLUE_OK) {
         curl_url_cleanup(u);
         return "";
     }
-    char* host_ptr = nullptr;
+    char *host_ptr = nullptr;
     curl_url_get(u, CURLUPART_HOST, &host_ptr, 0);
     std::string host = host_ptr ? host_ptr : "";
     curl_free(host_ptr);
     curl_url_cleanup(u);
 
-    while (!host.empty() && host.back() == '.') host.pop_back();
-    for (char& c : host) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    while (!host.empty() && host.back() == '.')
+        host.pop_back();
+    for (char &c : host)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     return host;
 }
 
-inline const SitePolicy* siteForUrl(std::string_view url, const std::vector<SitePolicy>& sites) {
+inline const SitePolicy *siteForUrl(std::string_view url, const std::vector<SitePolicy> &sites) {
     std::string host = hostOf(url);
-    if (host.empty()) return nullptr;
-    for (const auto& site : sites) {
-        for (const auto& domain : site.domains) {
+    if (host.empty())
+        return nullptr;
+    for (const auto &site : sites) {
+        for (const auto &domain : site.domains) {
             std::string d = domain;
-            while (!d.empty() && (d.front() == '.')) d.erase(d.begin());
-            while (!d.empty() && (d.back() == '.')) d.pop_back();
-            for (char& c : d) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            while (!d.empty() && (d.front() == '.'))
+                d.erase(d.begin());
+            while (!d.empty() && (d.back() == '.'))
+                d.pop_back();
+            for (char &c : d)
+                c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
             if (!d.empty()) {
                 if (host == d || host.ends_with("." + d)) {
                     return &site;
@@ -166,15 +202,16 @@ inline const SitePolicy* siteForUrl(std::string_view url, const std::vector<Site
 }
 
 inline bool urlMatches(std::string_view url_str, std::string_view pattern) {
-    CURLU* u = curl_url();
-    if (!u) return false;
+    CURLU *u = curl_url();
+    if (!u)
+        return false;
     if (curl_url_set(u, CURLUPART_URL, std::string(url_str).c_str(), 0) != CURLUE_OK) {
         curl_url_cleanup(u);
         return false;
     }
-    char* host_ptr = nullptr;
-    char* path_ptr = nullptr;
-    char* query_ptr = nullptr;
+    char *host_ptr = nullptr;
+    char *path_ptr = nullptr;
+    char *query_ptr = nullptr;
     curl_url_get(u, CURLUPART_HOST, &host_ptr, 0);
     curl_url_get(u, CURLUPART_PATH, &path_ptr, 0);
     curl_url_get(u, CURLUPART_QUERY, &query_ptr, 0);
@@ -188,15 +225,19 @@ inline bool urlMatches(std::string_view url_str, std::string_view pattern) {
     curl_free(query_ptr);
     curl_url_cleanup(u);
 
-    for (char& c : path) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    for (char& c : host) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    for (char& c : query) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (char &c : path)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (char &c : host)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (char &c : query)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 
     std::string clean_path;
     bool last_slash = false;
     for (char c : path) {
         if (c == '/') {
-            if (!last_slash) clean_path.push_back(c);
+            if (!last_slash)
+                clean_path.push_back(c);
             last_slash = true;
         } else {
             clean_path.push_back(c);
@@ -205,7 +246,8 @@ inline bool urlMatches(std::string_view url_str, std::string_view pattern) {
     }
 
     std::string want(pattern);
-    for (char& c : want) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (char &c : want)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 
     if (want.starts_with("/")) {
         return clean_path.starts_with(want);
@@ -254,7 +296,7 @@ inline SiteDoc parseSiteDoc(std::string_view markdown) {
         throw std::runtime_error("site doc: invalid YAML frontmatter: " + parsed.error());
     }
 
-    const auto& raw = *parsed;
+    const auto &raw = *parsed;
     if (!raw.is_object()) {
         throw std::runtime_error("site doc: YAML frontmatter must be an object");
     }
@@ -274,8 +316,9 @@ inline SiteDoc parseSiteDoc(std::string_view markdown) {
         throw std::runtime_error("site doc \"" + id + "\": domains must be a non-empty array");
     }
     std::vector<std::string> domains;
-    for (const auto& d : raw["domains"].get<slimr::Json::array_t>()) {
-        if (d.is_string()) domains.push_back(d.get<std::string>());
+    for (const auto &d : raw["domains"].get<slimr::Json::array_t>()) {
+        if (d.is_string())
+            domains.push_back(d.get<std::string>());
     }
 
     if (!raw.contains("kind") || !raw["kind"].is_string()) {
@@ -293,19 +336,21 @@ inline SiteDoc parseSiteDoc(std::string_view markdown) {
     policy.kind = kind;
 
     if (raw.contains("categories") && raw["categories"].is_array()) {
-        for (const auto& c : raw["categories"].get<slimr::Json::array_t>()) {
-            if (c.is_string()) policy.categories.push_back(c.get<std::string>());
+        for (const auto &c : raw["categories"].get<slimr::Json::array_t>()) {
+            if (c.is_string())
+                policy.categories.push_back(c.get<std::string>());
         }
     }
 
     if (raw.contains("urls") && raw["urls"].is_object()) {
-        for (const auto& [k, v] : raw["urls"].get<slimr::Json::object_t>()) {
-            if (v.is_string()) policy.urls[k] = v.get<std::string>();
+        for (const auto &[k, v] : raw["urls"].get<slimr::Json::object_t>()) {
+            if (v.is_string())
+                policy.urls[k] = v.get<std::string>();
         }
     }
 
     if (raw.contains("defaults") && raw["defaults"].is_object()) {
-        const auto& d = raw["defaults"];
+        const auto &d = raw["defaults"];
         if (d.contains("read") && d["read"].is_string()) {
             policy.defaults.read = stringToReadState(d["read"].get<std::string>());
         }
@@ -319,36 +364,41 @@ inline SiteDoc parseSiteDoc(std::string_view markdown) {
     }
 
     if (raw.contains("readPosts") && raw["readPosts"].is_array()) {
-        for (const auto& p : raw["readPosts"].get<slimr::Json::array_t>()) {
-            if (p.is_string()) policy.readPosts.push_back(p.get<std::string>());
+        for (const auto &p : raw["readPosts"].get<slimr::Json::array_t>()) {
+            if (p.is_string())
+                policy.readPosts.push_back(p.get<std::string>());
         }
     }
 
     if (raw.contains("blocked") && raw["blocked"].is_array()) {
-        for (const auto& b : raw["blocked"].get<slimr::Json::array_t>()) {
-            if (b.is_string()) policy.blocked.push_back(b.get<std::string>());
+        for (const auto &b : raw["blocked"].get<slimr::Json::array_t>()) {
+            if (b.is_string())
+                policy.blocked.push_back(b.get<std::string>());
         }
     }
 
     if (raw.contains("allowedPages") && raw["allowedPages"].is_array()) {
-        for (const auto& a : raw["allowedPages"].get<slimr::Json::array_t>()) {
-            if (a.is_string()) policy.allowedPages.push_back(a.get<std::string>());
+        for (const auto &a : raw["allowedPages"].get<slimr::Json::array_t>()) {
+            if (a.is_string())
+                policy.allowedPages.push_back(a.get<std::string>());
         }
     }
 
     if (raw.contains("strip") && raw["strip"].is_array()) {
-        for (const auto& s : raw["strip"].get<slimr::Json::array_t>()) {
-            if (s.is_string()) policy.strip.push_back(s.get<std::string>());
+        for (const auto &s : raw["strip"].get<slimr::Json::array_t>()) {
+            if (s.is_string())
+                policy.strip.push_back(s.get<std::string>());
         }
     }
 
     if (raw.contains("concurrency") && raw["concurrency"].is_number()) {
         policy.concurrency = static_cast<int>(raw["concurrency"].get<int64_t>());
-        if (policy.concurrency < 1) policy.concurrency = 1;
+        if (policy.concurrency < 1)
+            policy.concurrency = 1;
     }
 
     if (raw.contains("ttl") && raw["ttl"].is_object()) {
-        for (const auto& [k, v] : raw["ttl"].get<slimr::Json::object_t>()) {
+        for (const auto &[k, v] : raw["ttl"].get<slimr::Json::object_t>()) {
             if (v.is_number()) {
                 policy.ttl[stringToPageKind(k)] = static_cast<int>(v.get<int64_t>());
             }
@@ -356,20 +406,24 @@ inline SiteDoc parseSiteDoc(std::string_view markdown) {
     }
 
     if (raw.contains("ucp") && raw["ucp"].is_object()) {
-        const auto& u = raw["ucp"];
+        const auto &u = raw["ucp"];
         if (u.contains("endpoint") && u["endpoint"].is_string()) {
             policy.ucp = UcpConfig{u["endpoint"].get<std::string>()};
         }
     }
 
     if (raw.contains("stores") && raw["stores"].is_array()) {
-        for (const auto& s : raw["stores"].get<slimr::Json::array_t>()) {
+        for (const auto &s : raw["stores"].get<slimr::Json::array_t>()) {
             if (s.is_object()) {
                 StoreBranch sb;
-                if (s.contains("id") && s["id"].is_string()) sb.id = s["id"].get<std::string>();
-                if (s.contains("name") && s["name"].is_string()) sb.name = s["name"].get<std::string>();
-                if (s.contains("lat") && s["lat"].is_number()) sb.lat = s["lat"].get<double>();
-                if (s.contains("lon") && s["lon"].is_number()) sb.lon = s["lon"].get<double>();
+                if (s.contains("id") && s["id"].is_string())
+                    sb.id = s["id"].get<std::string>();
+                if (s.contains("name") && s["name"].is_string())
+                    sb.name = s["name"].get<std::string>();
+                if (s.contains("lat") && s["lat"].is_number())
+                    sb.lat = s["lat"].get<double>();
+                if (s.contains("lon") && s["lon"].is_number())
+                    sb.lon = s["lon"].get<double>();
                 policy.stores.push_back(std::move(sb));
             }
         }
@@ -463,7 +517,8 @@ inline const std::vector<std::string> ACCOUNT_PAGES = {
 };
 
 inline bool isMutation(std::string_view body) {
-    if (body.empty()) return false;
+    if (body.empty())
+        return false;
     auto starts = [](std::string_view q) {
         static const std::regex mutRe(R"(^\s*(#[^\n]*\n\s*)*mutation\b)");
         return std::regex_search(q.begin(), q.end(), mutRe);
@@ -472,42 +527,46 @@ inline bool isMutation(std::string_view body) {
     if (parsed) {
         std::vector<slimr::Json> ops;
         if (parsed->is_array()) {
-            for (const auto& item : parsed->get<slimr::Json::array_t>()) ops.push_back(item);
+            for (const auto &item : parsed->get<slimr::Json::array_t>())
+                ops.push_back(item);
         } else {
             ops.push_back(*parsed);
         }
-        for (const auto& op : ops) {
+        for (const auto &op : ops) {
             if (op.is_object() && op.contains("query") && op["query"].is_string()) {
-                if (starts(op["query"].get<std::string>())) return true;
+                if (starts(op["query"].get<std::string>()))
+                    return true;
             }
         }
     }
-    if (starts(body)) return true;
+    if (starts(body))
+        return true;
     static const std::regex rawMutRe(R"(\bmutation\s*[({A-Za-z_])");
     std::string_view prefix = body.substr(0, std::min<size_t>(body.size(), 200));
     return std::regex_search(prefix.begin(), prefix.end(), rawMutRe);
 }
 
 inline GuardDecision decide(
-    const GuardRequest& request,
-    const std::vector<SitePolicy>& sites,
-    const std::map<std::string, SiteState>& states) {
-    const std::string& url = request.url;
+    const GuardRequest &request,
+    const std::vector<SitePolicy> &sites,
+    const std::map<std::string, SiteState> &states) {
+    const std::string &url = request.url;
     static const std::regex nonNetwork(R"(^(chrome-extension|data|blob):)", std::regex::icase);
     if (std::regex_search(url, nonNetwork)) {
         return GuardDecision{"continue", "non-network scheme", false};
     }
 
-    CURLU* u = curl_url();
-    if (!u) return GuardDecision{"fail", "unparseable URL", false};
+    CURLU *u = curl_url();
+    if (!u)
+        return GuardDecision{"fail", "unparseable URL", false};
     if (curl_url_set(u, CURLUPART_URL, url.c_str(), 0) != CURLUE_OK) {
         curl_url_cleanup(u);
         return GuardDecision{"fail", "unparseable URL", false};
     }
     curl_url_cleanup(u);
 
-    const SitePolicy* site = siteForUrl(url, sites);
-    for (const auto& pattern : FORBIDDEN) {
+    const SitePolicy *site = siteForUrl(url, sites);
+    for (const auto &pattern : FORBIDDEN) {
         if (urlMatches(url, pattern)) {
             bool passive = (request.resourceType == "Image" || request.resourceType == "Stylesheet" ||
                             request.resourceType == "Font" || request.resourceType == "Media");
@@ -516,18 +575,18 @@ inline GuardDecision decide(
     }
 
     if (site) {
-        for (const auto& pattern : site->blocked) {
+        for (const auto &pattern : site->blocked) {
             if (urlMatches(url, pattern)) {
                 return GuardDecision{"fail", "blocked by " + site->id + " policy (" + pattern + ")", false};
             }
         }
     }
 
-    for (const auto& pattern : ACCOUNT_PAGES) {
+    for (const auto &pattern : ACCOUNT_PAGES) {
         if (urlMatches(url, pattern)) {
             bool allowed = false;
             if (site) {
-                for (const auto& ap : site->allowedPages) {
+                for (const auto &ap : site->allowedPages) {
                     if (urlMatches(url, ap)) {
                         allowed = true;
                         break;
@@ -544,27 +603,28 @@ inline GuardDecision decide(
     if (!site) {
         if (request.resourceType == "Document") {
             return !request.isMainFrame
-                ? GuardDecision{"fail", "iframe from a site with no site doc", true}
-                : GuardDecision{"fail", "navigation to a site with no site doc", false};
+                       ? GuardDecision{"fail", "iframe from a site with no site doc", true}
+                       : GuardDecision{"fail", "navigation to a site with no site doc", false};
         }
     } else {
         auto it = states.find(site->id);
-        const SiteState& st = (it != states.end()) ? it->second : default_state;
+        const SiteState &st = (it != states.end()) ? it->second : default_state;
         if (st.read == ReadState::off) {
             return GuardDecision{"fail", "read access to " + site->id + " is off", false};
         }
     }
 
     std::string method = request.method;
-    for (char& c : method) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    for (char &c : method)
+        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
     if (method == "GET" || method == "HEAD" || method == "OPTIONS") {
         return GuardDecision{"continue", "read", false};
     }
 
-    const SitePolicy* pageSite = siteForUrl(request.pageUrl, sites);
+    const SitePolicy *pageSite = siteForUrl(request.pageUrl, sites);
     if (!site || !pageSite || pageSite->id != site->id) {
         if (pageSite) {
-            for (const auto& pattern : pageSite->readPosts) {
+            for (const auto &pattern : pageSite->readPosts) {
                 if (urlMatches(url, pattern) && !isMutation(request.body)) {
                     return GuardDecision{"continue", "read-only POST listed in " + pageSite->id + " readPosts", false};
                 }
@@ -573,14 +633,14 @@ inline GuardDecision decide(
         return GuardDecision{"fail", "cross-site " + method + " blocked", true};
     }
 
-    for (const auto& pattern : site->readPosts) {
+    for (const auto &pattern : site->readPosts) {
         if (urlMatches(url, pattern) && !isMutation(request.body)) {
             return GuardDecision{"continue", "read-only POST listed in readPosts", false};
         }
     }
 
     auto it = states.find(site->id);
-    const SiteState& st = (it != states.end()) ? it->second : default_state;
+    const SiteState &st = (it != states.end()) ? it->second : default_state;
     if (st.write == WriteState::ask) {
         return GuardDecision{"ask", method + " to " + site->id + " needs the user's approval", false};
     }

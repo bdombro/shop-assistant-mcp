@@ -1,6 +1,6 @@
 #pragma once
 
-#include "test.hpp"
+#include "sites/all_sites.hpp"
 #include "sites/chadwicks.hpp"
 #include "sites/currys.hpp"
 #include "sites/diy.hpp"
@@ -9,7 +9,7 @@
 #include "sites/mcquillantools.hpp"
 #include "sites/mydiy.hpp"
 #include "sites/woodies.hpp"
-#include "sites/all_sites.hpp"
+#include "test.hpp"
 
 TEST_CASE("all newly ported site adapters parse search and product HTML") {
     std::string checkedAt = "2026-11-10T00:00:00Z";
@@ -63,7 +63,7 @@ TEST_CASE("all newly ported site adapters parse search and product HTML") {
     CHECK(woodRes.offers[0].name == "Lawnmower");
     CHECK(woodRes.offers[0].price.amount == 299.00);
 
-    auto& reg = shop::core::AdapterRegistry::instance();
+    auto &reg = shop::core::AdapterRegistry::instance();
     shop::sites::register_all_sites(reg);
     CHECK(reg.allIds().size() == 22);
 }

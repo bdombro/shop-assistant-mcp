@@ -30,15 +30,16 @@ inline Delivery siteDelivery(double amount, std::optional<bool> canDeliver) {
         .minDays = 2,
         .maxDays = 3,
         .cost = (amount >= 50.0) ? 0.0 : 5.0,
-        .source = canDeliver.has_value() ? "listing" : "site default"
-    };
+        .source = canDeliver.has_value() ? "listing" : "site default"};
 }
 
 inline std::string collectLabel(std::string_view status) {
     std::string s(status);
-    for (char& c : s) {
-        if (c == '_') c = ' ';
-        else c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (char &c : s) {
+        if (c == '_')
+            c = ' ';
+        else
+            c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     }
     if (!s.empty()) {
         s[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(s[0])));
@@ -54,7 +55,8 @@ inline std::runtime_error noDataError(std::string_view html, std::string_view co
         std::string title = "no title";
         if (std::regex_search(htmlStr, m, titleRe)) {
             title = text(m[1].str());
-            if (title.empty()) title = "no title";
+            if (title.empty())
+                title = "no title";
         }
         return std::runtime_error(
             "screwfix: the page has no data (a bot check or error page, not a layout change); tell the user and don't retry: " + title);
@@ -71,23 +73,29 @@ inline std::optional<slimr::Json> component(std::string_view html, std::string_v
     }
     std::string jsonStr = m[1].str();
     auto parsed = slimr::parse_json<slimr::Json>(jsonStr);
-    if (!parsed || !parsed->is_object()) return std::nullopt;
+    if (!parsed || !parsed->is_object())
+        return std::nullopt;
 
-    auto& root = *parsed;
-    if (!root.contains("props") || !root["props"].is_object()) return std::nullopt;
-    auto& props = root["props"];
-    if (!props.contains("pageProps") || !props["pageProps"].is_object()) return std::nullopt;
-    auto& pageProps = props["pageProps"];
-    if (!pageProps.contains("page") || !pageProps["page"].is_object()) return std::nullopt;
-    auto& pageObj = pageProps["page"];
-    if (!pageObj.contains("page") || !pageObj["page"].is_object()) return std::nullopt;
-    auto& componentsObj = pageObj["page"];
+    auto &root = *parsed;
+    if (!root.contains("props") || !root["props"].is_object())
+        return std::nullopt;
+    auto &props = root["props"];
+    if (!props.contains("pageProps") || !props["pageProps"].is_object())
+        return std::nullopt;
+    auto &pageProps = props["pageProps"];
+    if (!pageProps.contains("page") || !pageProps["page"].is_object())
+        return std::nullopt;
+    auto &pageObj = pageProps["page"];
+    if (!pageObj.contains("page") || !pageObj["page"].is_object())
+        return std::nullopt;
+    auto &componentsObj = pageObj["page"];
 
-    for (const auto& [_, compVal] : componentsObj.get<slimr::Json::object_t>()) {
-        if (!compVal.is_object()) continue;
+    for (const auto &[_, compVal] : componentsObj.get<slimr::Json::object_t>()) {
+        if (!compVal.is_object())
+            continue;
         if (compVal.contains("name") && compVal["name"].is_string() && compVal["name"].get<std::string>() == name) {
             if (compVal.contains("models") && compVal["models"].is_object()) {
-                auto& models = compVal["models"];
+                auto &models = compVal["models"];
                 if (models.contains("enrichedData")) {
                     return models["enrichedData"];
                 }
@@ -97,13 +105,15 @@ inline std::optional<slimr::Json> component(std::string_view html, std::string_v
     return std::nullopt;
 }
 
-inline std::optional<Offer> toOffer(const slimr::Json& row, std::string_view checkedAt, bool listing, std::string_view store) {
-    if (!row.is_object()) return std::nullopt;
+inline std::optional<Offer> toOffer(const slimr::Json &row, std::string_view checkedAt, bool listing, std::string_view store) {
+    if (!row.is_object())
+        return std::nullopt;
     std::string skuId;
     if (row.contains("skuId") && row["skuId"].is_string()) {
         skuId = row["skuId"].get<std::string>();
     }
-    if (skuId.empty()) return std::nullopt;
+    if (skuId.empty())
+        return std::nullopt;
 
     std::optional<double> amount;
     std::optional<double> was;
@@ -111,9 +121,9 @@ inline std::optional<Offer> toOffer(const slimr::Json& row, std::string_view che
     std::optional<double> priceExVat;
 
     if (row.contains("priceInformation") && row["priceInformation"].is_object()) {
-        auto& priceInfo = row["priceInformation"];
+        auto &priceInfo = row["priceInformation"];
         if (priceInfo.contains("currentPriceIncVat") && priceInfo["currentPriceIncVat"].is_object()) {
-            auto& incVat = priceInfo["currentPriceIncVat"];
+            auto &incVat = priceInfo["currentPriceIncVat"];
             if (incVat.contains("amount") && incVat["amount"].is_number()) {
                 amount = incVat["amount"].get<double>();
             }
@@ -122,24 +132,25 @@ inline std::optional<Offer> toOffer(const slimr::Json& row, std::string_view che
             }
         }
         if (priceInfo.contains("wasPriceIncVat") && priceInfo["wasPriceIncVat"].is_object()) {
-            auto& wasObj = priceInfo["wasPriceIncVat"];
+            auto &wasObj = priceInfo["wasPriceIncVat"];
             if (wasObj.contains("amount") && wasObj["amount"].is_number()) {
                 was = wasObj["amount"].get<double>();
             }
         }
         if (priceInfo.contains("currentPriceExVat") && priceInfo["currentPriceExVat"].is_object()) {
-            auto& exVatObj = priceInfo["currentPriceExVat"];
+            auto &exVatObj = priceInfo["currentPriceExVat"];
             if (exVatObj.contains("amount") && exVatObj["amount"].is_number()) {
                 priceExVat = exVatObj["amount"].get<double>();
             }
         }
     }
-    if (!amount.has_value()) return std::nullopt;
+    if (!amount.has_value())
+        return std::nullopt;
 
     std::optional<bool> canDeliver;
     std::optional<bool> canCollect;
     if (row.contains("fulfilmentAvailability") && row["fulfilmentAvailability"].is_object()) {
-        auto& fa = row["fulfilmentAvailability"];
+        auto &fa = row["fulfilmentAvailability"];
         if (fa.contains("canBeDelivered") && fa["canBeDelivered"].is_boolean()) {
             canDeliver = fa["canBeDelivered"].get<bool>();
         }
@@ -176,8 +187,9 @@ inline std::optional<Offer> toOffer(const slimr::Json& row, std::string_view che
     std::optional<std::string> model;
     if (!listing) {
         if (row.contains("technicalSpecifications") && row["technicalSpecifications"].is_array()) {
-            for (const auto& s : row["technicalSpecifications"].get<slimr::Json::array_t>()) {
-                if (!s.is_object()) continue;
+            for (const auto &s : row["technicalSpecifications"].get<slimr::Json::array_t>()) {
+                if (!s.is_object())
+                    continue;
                 std::string k = s.contains("name") && s["name"].is_string() ? text(s["name"].get<std::string>()) : "";
                 std::string v = s.contains("value") && s["value"].is_string() ? text(s["value"].get<std::string>()) : "";
                 if (!k.empty() && !v.empty()) {
@@ -201,18 +213,21 @@ inline std::optional<Offer> toOffer(const slimr::Json& row, std::string_view che
         detailPageUrl = row["detailPageUrl"].get<std::string>();
     }
     std::string skuLower = skuId;
-    for (char& c : skuLower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (char &c : skuLower)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     std::string url = !detailPageUrl.empty() ? canonicalUrl(detailPageUrl, BASE) : BASE + "p/item/" + skuLower;
 
     std::string skuUpper = skuId;
-    for (char& c : skuUpper) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    for (char &c : skuUpper)
+        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
 
     std::string name = row.contains("longDescription") && row["longDescription"].is_string() ? text(row["longDescription"].get<std::string>()) : "";
 
     std::optional<std::string> brand;
     if (row.contains("brand") && row["brand"].is_string()) {
         std::string b = text(row["brand"].get<std::string>());
-        if (!b.empty()) brand = std::move(b);
+        if (!b.empty())
+            brand = std::move(b);
     }
 
     std::optional<std::string> category;
@@ -221,7 +236,8 @@ inline std::optional<Offer> toOffer(const slimr::Json& row, std::string_view che
     } else if (row.contains("defaultParentCategory") && row["defaultParentCategory"].is_object() && row["defaultParentCategory"].contains("name") && row["defaultParentCategory"]["name"].is_string()) {
         category = text(row["defaultParentCategory"]["name"].get<std::string>());
     }
-    if (category && category->empty()) category = std::nullopt;
+    if (category && category->empty())
+        category = std::nullopt;
 
     std::optional<Rating> rating;
     if (row.contains("starRating") && row["starRating"].is_number() && row.contains("numberOfReviews") && row["numberOfReviews"].is_number()) {
@@ -249,8 +265,7 @@ inline std::optional<Offer> toOffer(const slimr::Json& row, std::string_view che
         .amount = *amount,
         .currency = std::move(currency),
         .was = (was.has_value() && *was > *amount) ? was : std::nullopt,
-        .taxIncluded = true
-    };
+        .taxIncluded = true};
     o.rating = std::move(rating);
     o.inStock = inStock;
     o.delivery = siteDelivery(*amount, collectionOnly ? std::optional<bool>(false) : canDeliver);
@@ -271,7 +286,7 @@ inline SearchResult parseScrewfixSearch(std::string_view html, std::string_view 
         throw noDataError(html, "search-results");
     }
 
-    auto& listing = *listingOpt;
+    auto &listing = *listingOpt;
     std::string store;
     if (listing.is_object() && listing.contains("store") && listing["store"].is_object() &&
         listing["store"].contains("name") && listing["store"]["name"].is_string()) {
@@ -280,9 +295,10 @@ inline SearchResult parseScrewfixSearch(std::string_view html, std::string_view 
 
     std::vector<Offer> offers;
     if (listing.is_object() && listing.contains("products") && listing["products"].is_array()) {
-        for (const auto& row : listing["products"].get<slimr::Json::array_t>()) {
+        for (const auto &row : listing["products"].get<slimr::Json::array_t>()) {
             auto o = toOffer(row, checkedAt, true, store);
-            if (o) offers.push_back(std::move(*o));
+            if (o)
+                offers.push_back(std::move(*o));
         }
     }
 
@@ -326,16 +342,17 @@ inline Offer parseScrewfixProduct(std::string_view html, std::string_view checke
     return *o;
 }
 
-inline ReviewsResult parseScrewfixReviews(const slimr::Json& json) {
-    const slimr::Json* root = &json;
+inline ReviewsResult parseScrewfixReviews(const slimr::Json &json) {
+    const slimr::Json *root = &json;
     if (json.is_object() && json.contains("response") && json["response"].is_object()) {
         root = &json["response"];
     }
 
     std::vector<Review> reviews;
     if (root->is_object() && root->contains("Results") && (*root)["Results"].is_array()) {
-        for (const auto& r : (*root)["Results"].get<slimr::Json::array_t>()) {
-            if (!r.is_object()) continue;
+        for (const auto &r : (*root)["Results"].get<slimr::Json::array_t>()) {
+            if (!r.is_object())
+                continue;
             if (!r.contains("Rating") || !r["Rating"].is_number() ||
                 !r.contains("ReviewText") || !r["ReviewText"].is_string()) {
                 continue;
@@ -348,13 +365,15 @@ inline ReviewsResult parseScrewfixReviews(const slimr::Json& json) {
             std::optional<std::string> title;
             if (r.contains("Title") && r["Title"].is_string()) {
                 std::string t = text(r["Title"].get<std::string>());
-                if (!t.empty()) title = std::move(t);
+                if (!t.empty())
+                    title = std::move(t);
             }
             std::string reviewText = text(r["ReviewText"].get<std::string>());
             std::optional<std::string> date;
             if (r.contains("SubmissionTime") && r["SubmissionTime"].is_string()) {
                 std::string s = r["SubmissionTime"].get<std::string>();
-                if (s.size() >= 10) date = s.substr(0, 10);
+                if (s.size() >= 10)
+                    date = s.substr(0, 10);
             }
             std::optional<bool> verified;
             if (r.contains("Badges") && r["Badges"].is_object()) {
@@ -373,8 +392,7 @@ inline ReviewsResult parseScrewfixReviews(const slimr::Json& json) {
                 .date = std::move(date),
                 .verified = verified,
                 .variant = std::nullopt,
-                .syndicated = syndicated
-            });
+                .syndicated = syndicated});
         }
     }
 
@@ -385,28 +403,33 @@ inline ReviewsResult parseScrewfixReviews(const slimr::Json& json) {
     return ReviewsResult{.reviews = std::move(reviews), .total = total};
 }
 
-inline std::vector<Pickup> parseScrewfixStock(const slimr::Json& json, std::string_view skuId, double radiusKm) {
+inline std::vector<Pickup> parseScrewfixStock(const slimr::Json &json, std::string_view skuId, double radiusKm) {
     std::string skuUpper(skuId);
-    for (char& c : skuUpper) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    for (char &c : skuUpper)
+        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
 
     std::vector<Pickup> rows;
     if (!json.is_object() || !json.contains("nearestStores") || !json["nearestStores"].is_array()) {
         return rows;
     }
 
-    for (const auto& b : json["nearestStores"].get<slimr::Json::array_t>()) {
-        if (!b.is_object() || !b.contains("storeInfo") || !b["storeInfo"].is_object()) continue;
-        auto& storeInfo = b["storeInfo"];
+    for (const auto &b : json["nearestStores"].get<slimr::Json::array_t>()) {
+        if (!b.is_object() || !b.contains("storeInfo") || !b["storeInfo"].is_object())
+            continue;
+        auto &storeInfo = b["storeInfo"];
         double directDistance = -1.0;
         if (storeInfo.contains("directDistance") && storeInfo["directDistance"].is_number()) {
             directDistance = storeInfo["directDistance"].get<double>();
         }
-        if (directDistance < 0) continue;
+        if (directDistance < 0)
+            continue;
         double km = std::round((directDistance / 100.0)) / 10.0;
-        if (km > radiusKm) continue;
+        if (km > radiusKm)
+            continue;
 
-        if (!storeInfo.contains("store") || !storeInfo["store"].is_object()) continue;
-        auto& store = storeInfo["store"];
+        if (!storeInfo.contains("store") || !storeInfo["store"].is_object())
+            continue;
+        auto &store = storeInfo["store"];
         if (store.contains("isClosed") && store["isClosed"].is_boolean() && store["isClosed"].get<bool>()) {
             continue;
         }
@@ -415,17 +438,20 @@ inline std::vector<Pickup> parseScrewfixStock(const slimr::Json& json, std::stri
         if (store.contains("basic") && store["basic"].is_object() && store["basic"].contains("name") && store["basic"]["name"].is_string()) {
             name = text(store["basic"]["name"].get<std::string>());
         }
-        if (name.empty()) continue;
+        if (name.empty())
+            continue;
 
         std::optional<int> qty;
         std::optional<std::string> readyBy;
         if (b.contains("products") && b["products"].is_array()) {
-            for (const auto& p : b["products"].get<slimr::Json::array_t>()) {
-                if (!p.is_object()) continue;
+            for (const auto &p : b["products"].get<slimr::Json::array_t>()) {
+                if (!p.is_object())
+                    continue;
                 std::string pSku;
                 if (p.contains("skuId") && p["skuId"].is_string()) {
                     pSku = p["skuId"].get<std::string>();
-                    for (char& c : pSku) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+                    for (char &c : pSku)
+                        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
                 }
                 if (pSku == skuUpper) {
                     if (p.contains("branchStock") && p["branchStock"].is_number()) {
@@ -449,7 +475,8 @@ inline std::vector<Pickup> parseScrewfixStock(const slimr::Json& json, std::stri
 
         std::string status = "unknown";
         if (qty.has_value()) {
-            status = (*qty <= 0) ? "out" : (*qty <= 2) ? "low" : "in stock";
+            status = (*qty <= 0) ? "out" : (*qty <= 2) ? "low"
+                                                       : "in stock";
         }
 
         rows.push_back(Pickup{
@@ -457,26 +484,25 @@ inline std::vector<Pickup> parseScrewfixStock(const slimr::Json& json, std::stri
             .km = km,
             .status = std::move(status),
             .qty = qty,
-            .readyBy = std::move(readyBy)
-        });
+            .readyBy = std::move(readyBy)});
     }
 
-    std::sort(rows.begin(), rows.end(), [](const Pickup& a, const Pickup& b) {
+    std::sort(rows.begin(), rows.end(), [](const Pickup &a, const Pickup &b) {
         return a.km < b.km;
     });
     return rows;
 }
 
 class ScrewfixAdapter : public SiteAdapter {
-public:
+  public:
     std::string id() const override { return "screwfix"; }
     std::string matchHint() const override {
         return "Screwfix matches loosely; try the product type or the trade term (\"combi drill\", \"wood screws\").";
     }
 
-    SearchResult search(SiteContext& ctx, const SearchQuery& query) override {
+    SearchResult search(SiteContext &ctx, const SearchQuery &query) override {
         std::string enc = slimr::url_encode(query.query);
-        for (size_t pos = 0; (pos = enc.find("%20", pos)) != std::string::npos; ) {
+        for (size_t pos = 0; (pos = enc.find("%20", pos)) != std::string::npos;) {
             enc.replace(pos, 3, "+");
             pos += 1;
         }
@@ -485,19 +511,20 @@ public:
         return parseScrewfixSearch(html, "");
     }
 
-    std::vector<Offer> offer(SiteContext& ctx, const OfferRef& ref, const OfferOptions& options) override {
+    std::vector<Offer> offer(SiteContext &ctx, const OfferRef &ref, const OfferOptions &options) override {
         (void)options;
         std::string url = ref.url.value_or("");
         if (url.empty()) {
             std::string idLower = ref.id.value_or("");
-            for (char& c : idLower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            for (char &c : idLower)
+                c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
             url = screwfix_internal::BASE + "p/item/" + idLower;
         }
         std::string html = ctx.fetchText(canonicalUrl(url, screwfix_internal::BASE));
         return {parseScrewfixProduct(html, "")};
     }
 
-    ReviewsResult reviews(SiteContext& ctx, const OfferRef& ref, const ReviewQuery& query) override {
+    ReviewsResult reviews(SiteContext &ctx, const OfferRef &ref, const ReviewQuery &query) override {
         std::string id = ref.id.value_or("");
         if (id.empty() && ref.url) {
             static const std::regex idRe(R"(/([0-9a-zA-Z]+)$)");
@@ -510,21 +537,26 @@ public:
             throw std::runtime_error("screwfix: give the product id");
         }
         std::string idUpper = id;
-        for (char& c : idUpper) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+        for (char &c : idUpper)
+            c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
 
         std::string sortParam = "rating:asc";
-        if (query.sort == "newest") sortParam = "submissiontime:desc";
-        else if (query.sort == "helpful") sortParam = "helpfulness:desc";
+        if (query.sort == "newest")
+            sortParam = "submissiontime:desc";
+        else if (query.sort == "helpful")
+            sortParam = "helpfulness:desc";
 
         int limit = std::min(query.limit, 100);
         std::string url = screwfix_internal::BV +
-            "?resource=reviews&action=REVIEWS_N_STATS&filteredstats=reviews&Stats=Reviews"
-            "&limit=" + std::to_string(limit) +
-            "&offset=0&sort=" + slimr::url_encode(sortParam) +
-            "&apiversion=5.5&displaycode=22465-en_ie"
-            "&filter=productid%3Aeq%3A" + slimr::url_encode(idUpper) +
-            "&filter=contentlocale%3Aeq%3Aen_GB%2Cen_IE"
-            "&filter=isratingsonly%3Aeq%3Afalse";
+                          "?resource=reviews&action=REVIEWS_N_STATS&filteredstats=reviews&Stats=Reviews"
+                          "&limit=" +
+                          std::to_string(limit) +
+                          "&offset=0&sort=" + slimr::url_encode(sortParam) +
+                          "&apiversion=5.5&displaycode=22465-en_ie"
+                          "&filter=productid%3Aeq%3A" +
+                          slimr::url_encode(idUpper) +
+                          "&filter=contentlocale%3Aeq%3Aen_GB%2Cen_IE"
+                          "&filter=isratingsonly%3Aeq%3Afalse";
 
         FetchInit init;
         init.headers["bv-bfd-token"] = "22465,main_site,en_IE";
@@ -532,14 +564,15 @@ public:
         return parseScrewfixReviews(json);
     }
 
-    std::vector<Offer> pickup(SiteContext& ctx, const std::vector<Offer>& offers, const Near& near) override {
+    std::vector<Offer> pickup(SiteContext &ctx, const std::vector<Offer> &offers, const Near &near) override {
         std::string script = R"js((() => {
             const m = /"tykToken":"([^"]+)"/.exec(document.getElementById("__NEXT_DATA__")?.textContent ?? "");
             return m ? m[1] : "";
         })())js";
         auto tokenJson = ctx.evaluate(script);
         std::string token;
-        if (tokenJson.is_string()) token = tokenJson.get<std::string>();
+        if (tokenJson.is_string())
+            token = tokenJson.get<std::string>();
         if (token.empty()) {
             throw std::runtime_error("screwfix: no stock API token in the page config (layout changed?)");
         }
@@ -548,10 +581,10 @@ public:
         out.reserve(offers.size());
         for (auto offer : offers) {
             std::string url = screwfix_internal::BASE + "prod/ffx-browse-bff/v1/SFXIE/stock/search?productId=" +
-                slimr::url_encode(offer.id) +
-                "&lat=" + std::to_string(near.lat) +
-                "&long=" + std::to_string(near.lon) +
-                "&quantity=1";
+                              slimr::url_encode(offer.id) +
+                              "&lat=" + std::to_string(near.lat) +
+                              "&long=" + std::to_string(near.lon) +
+                              "&quantity=1";
 
             FetchInit init;
             init.headers["authorization"] = token;

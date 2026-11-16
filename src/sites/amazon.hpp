@@ -19,11 +19,16 @@ inline std::string amazonProductUrl(std::string_view host, std::string_view asin
 }
 
 inline std::string amazonCurrencyOf(std::string_view shown, std::string_view host) {
-    if (shown.find("€") != std::string_view::npos) return "EUR";
-    if (shown.find("£") != std::string_view::npos) return "GBP";
-    if (shown.find("$") != std::string_view::npos) return "USD";
-    if (host.ends_with(".co.uk")) return "GBP";
-    if (host.ends_with(".com")) return "USD";
+    if (shown.find("€") != std::string_view::npos)
+        return "EUR";
+    if (shown.find("£") != std::string_view::npos)
+        return "GBP";
+    if (shown.find("$") != std::string_view::npos)
+        return "USD";
+    if (host.ends_with(".co.uk"))
+        return "GBP";
+    if (host.ends_with(".com"))
+        return "USD";
     return "EUR";
 }
 
@@ -31,8 +36,10 @@ inline std::string amazonConditionOf(std::string_view label) {
     static const std::regex refRe(R"(\b(renewed|refurbished)\b)", std::regex::icase);
     static const std::regex usedRe(R"(\b(used|pre-owned|open box)\b)", std::regex::icase);
     std::string s(label);
-    if (std::regex_search(s, refRe)) return "refurbished";
-    if (std::regex_search(s, usedRe)) return "used";
+    if (std::regex_search(s, refRe))
+        return "refurbished";
+    if (std::regex_search(s, usedRe))
+        return "used";
     return "new";
 }
 
@@ -48,23 +55,26 @@ inline std::optional<int> amazonReviewCount(std::string_view label) {
             double n = std::stod(numStr);
             if (m[2].matched) {
                 char unit = static_cast<char>(std::tolower(static_cast<unsigned char>(m[2].str()[0])));
-                if (unit == 'k') n *= 1000.0;
-                else if (unit == 'm') n *= 1000000.0;
+                if (unit == 'k')
+                    n *= 1000.0;
+                else if (unit == 'm')
+                    n *= 1000000.0;
             }
             return static_cast<int>(std::round(n));
-        } catch (...) {}
+        } catch (...) {
+        }
     }
     return std::nullopt;
 }
 
 inline Delivery amazonDeliveryOf(std::string_view line, std::string_view source, std::optional<bool> stock = std::nullopt) {
     if (stock.has_value() && !*stock) {
-        return Delivery{ "unavailable", std::nullopt, std::nullopt, std::nullopt, std::string(source) };
+        return Delivery{"unavailable", std::nullopt, std::nullopt, std::nullopt, std::string(source)};
     }
     static const std::regex delRe(R"(delivery)", std::regex::icase);
     std::string s(line);
     if (s.empty() || !std::regex_search(s, delRe)) {
-        return Delivery{ "unknown", std::nullopt, std::nullopt, std::nullopt, "site default" };
+        return Delivery{"unknown", std::nullopt, std::nullopt, std::nullopt, "site default"};
     }
     std::optional<double> cost;
     static const std::regex freeRe(R"(free delivery)", std::regex::icase);
@@ -77,7 +87,7 @@ inline Delivery amazonDeliveryOf(std::string_view line, std::string_view source,
             cost = parsePrice(m[1].str());
         }
     }
-    return Delivery{ "available", std::nullopt, std::nullopt, cost, std::string(source) };
+    return Delivery{"available", std::nullopt, std::nullopt, cost, std::string(source)};
 }
 
 inline SearchResult parseAmazonSearch(std::string_view html, std::string_view host, std::string_view checkedAt) {
@@ -86,19 +96,22 @@ inline SearchResult parseAmazonSearch(std::string_view html, std::string_view ho
     std::vector<std::string> seen;
 
     auto rows = document.querySelectorAll("[data-component-type=\"s-search-result\"]");
-    for (const auto& row : rows) {
+    for (const auto &row : rows) {
         std::string asin = row.attr("data-asin").value_or("");
-        if (asin.empty() || std::find(seen.begin(), seen.end(), asin) != seen.end()) continue;
-        if (row.querySelector(".puis-sponsored-label-text") || row.querySelector(".s-sponsored-label-text")) continue;
+        if (asin.empty() || std::find(seen.begin(), seen.end(), asin) != seen.end())
+            continue;
+        if (row.querySelector(".puis-sponsored-label-text") || row.querySelector(".s-sponsored-label-text"))
+            continue;
 
         auto priceNode = row.querySelector(".a-price:not(.a-text-price) .a-offscreen");
         std::string priceText = cleanText(priceNode);
         auto amount = parsePrice(priceText);
-        if (!amount.has_value()) continue;
+        if (!amount.has_value())
+            continue;
 
         auto heads = row.querySelectorAll("h2");
         std::string title;
-        for (const auto& h : heads) {
+        for (const auto &h : heads) {
             auto aria = h.attr("aria-label");
             if (aria.has_value() && !aria->empty()) {
                 title = cleanText(*aria);
@@ -108,7 +121,8 @@ inline SearchResult parseAmazonSearch(std::string_view html, std::string_view ho
         if (title.empty() && !heads.empty()) {
             title = cleanText(heads.back().text());
         }
-        if (title.empty()) continue;
+        if (title.empty())
+            continue;
 
         seen.push_back(asin);
         std::optional<std::string> brand;
@@ -149,19 +163,20 @@ inline SearchResult parseAmazonSearch(std::string_view html, std::string_view ho
         offer.id = asin;
         offer.url = amazonProductUrl(host, asin);
         offer.name = title;
-        if (brand.has_value() && !brand->empty()) offer.brand = *brand;
+        if (brand.has_value() && !brand->empty())
+            offer.brand = *brand;
         offer.seller = "unknown";
         offer.condition = amazonConditionOf(title);
-        offer.price = Price{ *amount, amazonCurrencyOf(priceText, host), (was.has_value() && *was > *amount) ? was : std::nullopt, true };
+        offer.price = Price{*amount, amazonCurrencyOf(priceText, host), (was.has_value() && *was > *amount) ? was : std::nullopt, true};
         if (hasRating) {
-            offer.rating = Rating{ ratingValue, 5.0, count, std::nullopt };
+            offer.rating = Rating{ratingValue, 5.0, count, std::nullopt};
         }
         offer.delivery = delivery;
         offer.details = std::move(details);
         offer.checkedAt = std::string(checkedAt);
         offers.push_back(std::move(offer));
     }
-    return SearchResult{ std::move(offers), std::nullopt, {} };
+    return SearchResult{std::move(offers), std::nullopt, {}};
 }
 
 struct TwisterResult {
@@ -170,12 +185,12 @@ struct TwisterResult {
     std::string varies;
 };
 
-inline TwisterResult amazonTwisterOf(const Document& document) {
+inline TwisterResult amazonTwisterOf(const Document &document) {
     auto asinEl = document.querySelector("#ASIN");
     std::string own = asinEl ? asinEl->attr("value").value_or("") : "";
 
     std::string state;
-    for (const auto& s : document.querySelectorAll("#twister_feature_div script")) {
+    for (const auto &s : document.querySelectorAll("#twister_feature_div script")) {
         std::string txt = s.text();
         if (txt.find("sortedDimValuesForAllDims") != std::string::npos) {
             state = std::move(txt);
@@ -193,26 +208,30 @@ inline TwisterResult amazonTwisterOf(const Document& document) {
 
     if (state.empty()) {
         std::vector<std::string> vars;
-        if (!own.empty()) vars.push_back(own);
-        return TwisterResult{ std::move(vars), parent, "" };
+        if (!own.empty())
+            vars.push_back(own);
+        return TwisterResult{std::move(vars), parent, ""};
     }
 
     auto parsed = slimr::parse_json<slimr::Json>(state);
     if (!parsed || !parsed->is_object() || !parsed->contains("sortedDimValuesForAllDims")) {
         std::vector<std::string> vars;
-        if (!own.empty()) vars.push_back(own);
-        return TwisterResult{ std::move(vars), parent, "" };
+        if (!own.empty())
+            vars.push_back(own);
+        return TwisterResult{std::move(vars), parent, ""};
     }
 
-    auto& dims = (*parsed)["sortedDimValuesForAllDims"];
+    auto &dims = (*parsed)["sortedDimValuesForAllDims"];
     std::vector<std::string> variants;
     std::vector<std::string> selected;
 
     if (dims.is_object()) {
-        for (const auto& [_, dimList] : dims.get<slimr::Json::object_t>()) {
-            if (!dimList.is_array()) continue;
-            for (const auto& v : dimList.get<slimr::Json::array_t>()) {
-                if (!v.is_object()) continue;
+        for (const auto &[_, dimList] : dims.get<slimr::Json::object_t>()) {
+            if (!dimList.is_array())
+                continue;
+            for (const auto &v : dimList.get<slimr::Json::array_t>()) {
+                if (!v.is_object())
+                    continue;
                 if (v.contains("defaultAsin") && v["defaultAsin"].is_string()) {
                     std::string a = v["defaultAsin"].get<std::string>();
                     if (std::find(variants.begin(), variants.end(), a) == variants.end()) {
@@ -234,11 +253,12 @@ inline TwisterResult amazonTwisterOf(const Document& document) {
 
     std::string varies;
     for (size_t i = 0; i < selected.size(); ++i) {
-        if (i > 0) varies += ", ";
+        if (i > 0)
+            varies += ", ";
         varies += selected[i];
     }
 
-    return TwisterResult{ std::move(variants), parent, std::move(varies) };
+    return TwisterResult{std::move(variants), parent, std::move(varies)};
 }
 
 struct AmazonProductResult {
@@ -260,7 +280,7 @@ inline AmazonProductResult parseAmazonProduct(std::string_view html, std::string
     std::string name = cleanText(document.querySelector("#productTitle"));
     std::string priceText;
     auto priceNodes = document.querySelectorAll("#corePrice_feature_div .a-offscreen, #corePriceDisplay_desktop_feature_div .a-offscreen");
-    for (const auto& pn : priceNodes) {
+    for (const auto &pn : priceNodes) {
         std::string txt = cleanText(pn.text());
         if (txt.find_first_of("0123456789") != std::string::npos) {
             priceText = txt;
@@ -273,16 +293,17 @@ inline AmazonProductResult parseAmazonProduct(std::string_view html, std::string
     }
 
     std::map<std::string, slimr::Json> details;
-    for (const auto& row : document.querySelectorAll("#productOverview_feature_div tr")) {
+    for (const auto &row : document.querySelectorAll("#productOverview_feature_div tr")) {
         auto cells = row.querySelectorAll("td");
         if (cells.size() >= 2) {
             std::string k = cleanText(cells[0].text());
             std::string v = cleanText(cells[1].text());
-            if (!k.empty() && !v.empty()) details[k] = slimr::Json(v);
+            if (!k.empty() && !v.empty())
+                details[k] = slimr::Json(v);
         }
     }
 
-    for (const auto& row : document.querySelectorAll("#prodDetails tr, #productDetails_techSpec_section_1 tr, #productDetails_detailBullets_sections1 tr")) {
+    for (const auto &row : document.querySelectorAll("#prodDetails tr, #productDetails_techSpec_section_1 tr, #productDetails_detailBullets_sections1 tr")) {
         auto th = row.querySelector("th");
         auto td = row.querySelector("td");
         if (th && td) {
@@ -298,7 +319,7 @@ inline AmazonProductResult parseAmazonProduct(std::string_view html, std::string
 
     std::map<std::string, slimr::Json> spread;
     static const std::regex spreadRe(R"((\d+)\s+percent of reviews have\s+(\d)\s+star)");
-    for (const auto& el : document.querySelectorAll("[aria-label*=\"percent of reviews have\"]")) {
+    for (const auto &el : document.querySelectorAll("[aria-label*=\"percent of reviews have\"]")) {
         std::string aria = el.attr("aria-label").value_or("");
         std::smatch sm;
         if (std::regex_search(aria, sm, spreadRe)) {
@@ -307,7 +328,8 @@ inline AmazonProductResult parseAmazonProduct(std::string_view html, std::string
     }
     if (!spread.empty()) {
         slimr::Json::object_t obj;
-        for (auto& [k, v] : spread) obj[k] = std::move(v);
+        for (auto &[k, v] : spread)
+            obj[k] = std::move(v);
         details["Rating spread"] = slimr::Json(std::move(obj));
     }
 
@@ -337,11 +359,13 @@ inline AmazonProductResult parseAmazonProduct(std::string_view html, std::string
         for (; iter != end; ++iter) {
             std::string part = cleanText(iter->str());
             if (!part.empty()) {
-                if (!cat.empty()) cat += " > ";
+                if (!cat.empty())
+                    cat += " > ";
                 cat += part;
             }
         }
-        if (!cat.empty()) category = cat;
+        if (!cat.empty())
+            category = cat;
     }
 
     auto twister = amazonTwisterOf(document);
@@ -361,7 +385,7 @@ inline AmazonProductResult parseAmazonProduct(std::string_view html, std::string
     }
 
     std::optional<std::string> model;
-    for (const auto& k : { "Item model number", "Model Number", "Manufacturer reference", "Manufacturer Part Number" }) {
+    for (const auto &k : {"Item model number", "Model Number", "Manufacturer reference", "Manufacturer Part Number"}) {
         if (details.contains(k) && details[k].is_string()) {
             model = details[k].get<std::string>();
             break;
@@ -369,7 +393,7 @@ inline AmazonProductResult parseAmazonProduct(std::string_view html, std::string
     }
 
     std::optional<std::string> gtin;
-    for (const auto& k : { "EAN", "GTIN", "Global Trade Identification Number", "UPC", "Barcode" }) {
+    for (const auto &k : {"EAN", "GTIN", "Global Trade Identification Number", "UPC", "Barcode"}) {
         if (details.contains(k) && details[k].is_string()) {
             gtin = details[k].get<std::string>();
             break;
@@ -392,7 +416,8 @@ inline AmazonProductResult parseAmazonProduct(std::string_view html, std::string
     auto stock = parseStock(availability);
 
     std::string seller = cleanText(document.querySelector("#merchantInfoFeature_feature_div .offer-display-feature-text-message"));
-    if (seller.empty()) seller = "unknown";
+    if (seller.empty())
+        seller = "unknown";
 
     auto ship = document.querySelector("[data-csa-c-content-id=\"DEXUnifiedCXPDM\"]");
     std::string deliveryLine;
@@ -409,35 +434,41 @@ inline AmazonProductResult parseAmazonProduct(std::string_view html, std::string
     offer.id = asin;
     offer.url = amazonProductUrl(host, asin);
     offer.name = name;
-    if (brand.has_value()) offer.brand = *brand;
-    if (model.has_value()) offer.model = *model;
-    if (gtin.has_value()) offer.gtin = *gtin;
-    if (category.has_value()) offer.category = *category;
+    if (brand.has_value())
+        offer.brand = *brand;
+    if (model.has_value())
+        offer.model = *model;
+    if (gtin.has_value())
+        offer.gtin = *gtin;
+    if (category.has_value())
+        offer.category = *category;
     offer.seller = seller;
     offer.condition = amazonConditionOf(name + " " + availability);
-    offer.price = Price{ *amount, amazonCurrencyOf(priceText, host), std::nullopt, true };
-    if (stock.has_value()) offer.inStock = *stock;
+    offer.price = Price{*amount, amazonCurrencyOf(priceText, host), std::nullopt, true};
+    if (stock.has_value())
+        offer.inStock = *stock;
     if (hasRating) {
-        Rating r{ ratingVal, 5.0, count, std::nullopt };
-        if (twister.variants.size() > 1) r.scope = "family";
+        Rating r{ratingVal, 5.0, count, std::nullopt};
+        if (twister.variants.size() > 1)
+            r.scope = "family";
         offer.rating = r;
     }
     offer.delivery = delivery;
     offer.details = std::move(details);
     if (twister.variants.size() > 1) {
-        offer.family = Family{ twister.parent.value_or(asin), static_cast<int>(twister.variants.size()), twister.varies };
+        offer.family = Family{twister.parent.value_or(asin), static_cast<int>(twister.variants.size()), twister.varies};
     }
     offer.checkedAt = std::string(checkedAt);
 
-    return AmazonProductResult{ std::move(offer), std::move(twister.variants) };
+    return AmazonProductResult{std::move(offer), std::move(twister.variants)};
 }
 
-inline std::vector<Offer> parseAmazonSellers(std::string_view html, const Offer& base, std::string_view host) {
+inline std::vector<Offer> parseAmazonSellers(std::string_view html, const Offer &base, std::string_view host) {
     auto document = Document::parse(html);
     std::vector<Offer> out;
 
     auto els = document.querySelectorAll("#aod-pinned-offer, #aod-offer");
-    for (const auto& el : els) {
+    for (const auto &el : els) {
         std::string symbol = cleanText(el.querySelector(".a-price-symbol"));
         std::string whole = cleanText(el.querySelector(".a-price-whole"));
         static const std::regex sep(R"([.,\s])");
@@ -450,13 +481,16 @@ inline std::vector<Offer> parseAmazonSellers(std::string_view html, const Offer&
         } else {
             amount = parsePrice(cleanText(el.querySelector(".a-offscreen")));
         }
-        if (!amount.has_value()) continue;
+        if (!amount.has_value())
+            continue;
 
         std::string seller = cleanText(el.querySelector("#aod-offer-soldBy .a-col-right a, #aod-offer-soldBy .a-col-right span"));
-        if (seller.empty()) seller = "unknown";
+        if (seller.empty())
+            seller = "unknown";
 
         std::string heading = cleanText(el.querySelector("#aod-offer-heading"));
-        for (char& c : heading) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        for (char &c : heading)
+            c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 
         std::string condition = "unknown";
         if (heading.find("renewed") != std::string::npos || heading.find("refurbished") != std::string::npos) {
@@ -471,8 +505,10 @@ inline std::vector<Offer> parseAmazonSellers(std::string_view html, const Offer&
         std::string rating = cleanText(el.querySelector("#aod-offer-seller-rating"));
 
         std::map<std::string, slimr::Json> details;
-        if (!shipsFrom.empty()) details["Dispatches from"] = slimr::Json(shipsFrom);
-        if (!rating.empty()) details["Seller rating"] = slimr::Json(rating);
+        if (!shipsFrom.empty())
+            details["Dispatches from"] = slimr::Json(shipsFrom);
+        if (!rating.empty())
+            details["Seller rating"] = slimr::Json(rating);
 
         Offer o = base;
         o.family = std::nullopt;
@@ -480,7 +516,7 @@ inline std::vector<Offer> parseAmazonSellers(std::string_view html, const Offer&
         o.pickup = std::nullopt;
         o.seller = seller;
         o.condition = condition;
-        o.price = Price{ *amount, amazonCurrencyOf(symbol, host), std::nullopt, true };
+        o.price = Price{*amount, amazonCurrencyOf(symbol, host), std::nullopt, true};
         o.inStock = true;
         o.delivery = amazonDeliveryOf(cleanText(el.querySelector(".aod-delivery-promise")), "listing");
         o.details = std::move(details);
@@ -489,19 +525,22 @@ inline std::vector<Offer> parseAmazonSellers(std::string_view html, const Offer&
     return out;
 }
 
-inline std::vector<Review> amazonReviewsIn(const Document& document) {
+inline std::vector<Review> amazonReviewsIn(const Document &document) {
     std::vector<Review> out;
-    for (const auto& el : document.querySelectorAll("[data-hook=\"review\"]")) {
+    for (const auto &el : document.querySelectorAll("[data-hook=\"review\"]")) {
         auto starEl = el.querySelector("[data-hook=\"review-star-rating\"] .a-icon-alt, [data-hook=\"cmps-review-star-rating\"] .a-icon-alt");
         auto ratingOpt = parsePrice(cleanText(starEl));
-        if (!ratingOpt.has_value()) continue;
+        if (!ratingOpt.has_value())
+            continue;
         double rating = *ratingOpt;
 
         auto body = el.querySelector("[data-hook=\"review-body\"]");
-        if (!body) continue;
+        if (!body)
+            continue;
         auto orig = body->querySelector(".cr-original-review-content");
         std::string reviewText = cleanText(orig ? orig : body);
-        if (reviewText.empty()) continue;
+        if (reviewText.empty())
+            continue;
 
         auto head = el.querySelector("[data-hook=\"review-title\"]");
         std::string title;
@@ -511,7 +550,8 @@ inline std::vector<Review> amazonReviewsIn(const Document& document) {
                 title = cleanText(origHead);
             } else {
                 auto span = head->querySelector("span:not(.a-icon-alt)");
-                if (span) title = cleanText(span);
+                if (span)
+                    title = cleanText(span);
             }
         }
 
@@ -521,14 +561,16 @@ inline std::vector<Review> amazonReviewsIn(const Document& document) {
         auto formatStrip = el.querySelector("[data-hook=\"format-strip\"]");
         if (formatStrip) {
             std::vector<std::string> parts;
-            for (const auto& child : formatStrip->childNodes()) {
+            for (const auto &child : formatStrip->childNodes()) {
                 if (child.raw() && child.raw()->type == LXB_DOM_NODE_TYPE_TEXT) {
                     std::string t = cleanText(child.text());
-                    if (!t.empty()) parts.push_back(t);
+                    if (!t.empty())
+                        parts.push_back(t);
                 }
             }
             for (size_t i = 0; i < parts.size(); ++i) {
-                if (i > 0) variant += ", ";
+                if (i > 0)
+                    variant += ", ";
                 variant += parts[i];
             }
         }
@@ -538,25 +580,32 @@ inline std::vector<Review> amazonReviewsIn(const Document& document) {
         Review r;
         r.rating = rating;
         r.scale = 5.0;
-        if (!title.empty()) r.title = title;
+        if (!title.empty())
+            r.title = title;
         r.text = reviewText;
-        if (date.has_value()) r.date = *date;
-        if (verified) r.verified = true;
-        if (!variant.empty()) r.variant = variant;
+        if (date.has_value())
+            r.date = *date;
+        if (verified)
+            r.verified = true;
+        if (!variant.empty())
+            r.variant = variant;
         out.push_back(std::move(r));
     }
     return out;
 }
 
-inline std::optional<std::string> amazonNextTokenIn(const Document& document) {
+inline std::optional<std::string> amazonNextTokenIn(const Document &document) {
     auto btn = document.querySelector("[data-hook=\"show-more-button\"]");
-    if (!btn) return std::nullopt;
+    if (!btn)
+        return std::nullopt;
     auto raw = btn->attr("data-reviews-state-param");
-    if (!raw.has_value() || raw->empty()) return std::nullopt;
+    if (!raw.has_value() || raw->empty())
+        return std::nullopt;
     auto parsed = slimr::parse_json<slimr::Json>(*raw);
     if (parsed && parsed->is_object() && parsed->contains("nextPageToken") && (*parsed)["nextPageToken"].is_string()) {
         std::string token = (*parsed)["nextPageToken"].get<std::string>();
-        if (!token.empty()) return token;
+        if (!token.empty())
+            return token;
     }
     return std::nullopt;
 }
@@ -591,7 +640,8 @@ inline AmazonReviewPageResult parseAmazonReviewPage(std::string_view html) {
             nStr.erase(std::remove(nStr.begin(), nStr.end(), '.'), nStr.end());
             try {
                 total = std::stoi(nStr);
-            } catch (...) {}
+            } catch (...) {
+            }
         }
     }
 
@@ -610,7 +660,7 @@ inline AmazonReviewPageResult parseAmazonReviewPage(std::string_view html) {
     auto reviews = amazonReviewsIn(document);
     auto nextToken = amazonNextTokenIn(document);
 
-    return AmazonReviewPageResult{ std::move(reviews), total, std::move(nextToken), std::move(csrf) };
+    return AmazonReviewPageResult{std::move(reviews), total, std::move(nextToken), std::move(csrf)};
 }
 
 struct AmazonReviewAjaxResult {
@@ -630,7 +680,7 @@ inline AmazonReviewAjaxResult parseAmazonReviewAjax(std::string_view body) {
         if (!part.empty()) {
             auto parsed = slimr::parse_json<slimr::Json>(part);
             if (parsed && parsed->is_array()) {
-                auto& arr = parsed->get<slimr::Json::array_t>();
+                auto &arr = parsed->get<slimr::Json::array_t>();
                 if (arr.size() >= 3 && arr[0].is_string()) {
                     std::string op = arr[0].get<std::string>();
                     if ((op == "append" || op == "update") && arr[2].is_string()) {
@@ -639,18 +689,19 @@ inline AmazonReviewAjaxResult parseAmazonReviewAjax(std::string_view body) {
                 }
             }
         }
-        if (next == std::string::npos) break;
+        if (next == std::string::npos)
+            break;
         pos = next + delimiter.size();
     }
 
     auto document = Document::parse("<body>" + html + "</body>");
     auto reviews = amazonReviewsIn(document);
     auto nextToken = amazonNextTokenIn(document);
-    return AmazonReviewAjaxResult{ std::move(reviews), std::move(nextToken) };
+    return AmazonReviewAjaxResult{std::move(reviews), std::move(nextToken)};
 }
 
 class AmazonAdapter : public SiteAdapter {
-public:
+  public:
     std::string id() const override { return "amazon"; }
     bool deliveryOnly() const override { return true; }
 
@@ -658,7 +709,7 @@ public:
         return "Amazon matches loosely and ranks by its own relevance: use the product type plus brand or model; sponsored rows are dropped.";
     }
 
-    SearchResult search(SiteContext& ctx, const SearchQuery& q) override {
+    SearchResult search(SiteContext &ctx, const SearchQuery &q) override {
         const std::string HOST = "www.amazon.ie";
         std::string url = "https://" + HOST + "/s?k=" + urlEncode(q.query);
         if (q.filters.minPrice.has_value()) {
@@ -671,7 +722,7 @@ public:
         return parseAmazonSearch(html, HOST, "2026-10-15T00:00:00Z");
     }
 
-    std::vector<Offer> offer(SiteContext& ctx, const OfferRef& ref, const OfferOptions& options) override {
+    std::vector<Offer> offer(SiteContext &ctx, const OfferRef &ref, const OfferOptions &options) override {
         std::string asin = ref.id.value_or("");
         if (asin.empty() && ref.url.has_value()) {
             asin = amazonAsinOf(*ref.url).value_or("");
@@ -681,10 +732,10 @@ public:
         }
         std::string host = "www.amazon.ie";
         if (ref.url.has_value()) {
-            CURLU* u = curl_url();
+            CURLU *u = curl_url();
             if (u) {
                 if (curl_url_set(u, CURLUPART_URL, ref.url->c_str(), 0) == CURLUE_OK) {
-                    char* h = nullptr;
+                    char *h = nullptr;
                     curl_url_get(u, CURLUPART_HOST, &h, 0);
                     if (h) {
                         host = h;
@@ -697,13 +748,13 @@ public:
         std::string checkedAt = "2026-10-15T00:00:00Z";
         std::string html = fetchProductHtml(ctx, host, asin);
         auto main = parseAmazonProduct(html, host, checkedAt);
-        std::vector<Offer> out = { main.offer };
+        std::vector<Offer> out = {main.offer};
 
         if (options.sellers) {
             std::string aodUrl = "https://" + host + "/gp/product/ajax/aodAjaxMain/ref=dp_aod_ALL_mbc?asin=" + asin + "&pc=dp&experienceId=aodAjaxMain";
             std::string aod = ctx.fetchText(aodUrl);
             auto sellers = parseAmazonSellers(aod, main.offer, host);
-            for (auto& s : sellers) {
+            for (auto &s : sellers) {
                 if (!(s.seller == main.offer.seller && s.price.amount == main.offer.price.amount)) {
                     out.push_back(std::move(s));
                 }
@@ -713,9 +764,11 @@ public:
         if (options.family) {
             const size_t MAX_VARIANTS = 8;
             size_t count = 0;
-            for (const auto& variant : main.variants) {
-                if (variant == asin) continue;
-                if (++count > MAX_VARIANTS) break;
+            for (const auto &variant : main.variants) {
+                if (variant == asin)
+                    continue;
+                if (++count > MAX_VARIANTS)
+                    break;
                 std::string varHtml = fetchProductHtml(ctx, host, variant);
                 out.push_back(parseAmazonProduct(varHtml, host, checkedAt).offer);
             }
@@ -723,7 +776,7 @@ public:
         return out;
     }
 
-    ReviewsResult reviews(SiteContext& ctx, const OfferRef& ref, const ReviewQuery& q) override {
+    ReviewsResult reviews(SiteContext &ctx, const OfferRef &ref, const ReviewQuery &q) override {
         std::string asin = ref.id.value_or("");
         if (asin.empty() && ref.url.has_value()) {
             asin = amazonAsinOf(*ref.url).value_or("");
@@ -750,8 +803,8 @@ public:
 
         const std::string HOST = "www.amazon.ie";
         std::string first = (q.sort == "lowest")
-            ? "filterByStar=critical"
-            : "reviewerType=all_reviews&sortBy=" + f.sortBy;
+                                ? "filterByStar=critical"
+                                : "reviewerType=all_reviews&sortBy=" + f.sortBy;
 
         std::string html = ctx.fetchText("https://" + HOST + "/product-reviews/" + asin + "/?" + first);
         auto page = parseAmazonReviewPage(html);
@@ -766,14 +819,14 @@ public:
             }
             std::string reftag = "cm_cr_arp_d_paging_btm_next_" + std::to_string(n);
             std::string body = "sortBy=" + urlEncode(f.sortBy) +
-                "&reviewerType=all_reviews&formatType=&mediaType=&filterByStar=" + urlEncode(f.filterByStar) +
-                "&filterByAge=&pageNumber=" + std::to_string(n) +
-                "&filterByLanguage=&filterByKeyword=&shouldAppend=true&deviceType=desktop&canShowIntHeader=false" +
-                "&reftag=" + reftag +
-                "&pageSize=" + std::to_string(REVIEW_PAGE_SIZE) +
-                "&asin=" + asin +
-                "&scope=reviewsAjax0" +
-                "&nextPageToken=" + urlEncode(*token);
+                               "&reviewerType=all_reviews&formatType=&mediaType=&filterByStar=" + urlEncode(f.filterByStar) +
+                               "&filterByAge=&pageNumber=" + std::to_string(n) +
+                               "&filterByLanguage=&filterByKeyword=&shouldAppend=true&deviceType=desktop&canShowIntHeader=false" +
+                               "&reftag=" + reftag +
+                               "&pageSize=" + std::to_string(REVIEW_PAGE_SIZE) +
+                               "&asin=" + asin +
+                               "&scope=reviewsAjax0" +
+                               "&nextPageToken=" + urlEncode(*token);
 
             FetchInit init;
             init.method = "POST";
@@ -784,18 +837,19 @@ public:
 
             std::string res = ctx.fetchText("https://" + HOST + "/portal/customer-reviews/ajax/reviews/get/ref=" + reftag, init);
             auto next = parseAmazonReviewAjax(res);
-            for (auto& r : next.reviews) reviews.push_back(std::move(r));
+            for (auto &r : next.reviews)
+                reviews.push_back(std::move(r));
             token = next.reviews.empty() ? std::nullopt : next.nextToken;
         }
 
         if (static_cast<int>(reviews.size()) > q.limit) {
             reviews.resize(q.limit);
         }
-        return ReviewsResult{ std::move(reviews), page.total };
+        return ReviewsResult{std::move(reviews), page.total};
     }
 
-private:
-    std::string fetchProductHtml(SiteContext& ctx, const std::string& host, const std::string& asin) {
+  private:
+    std::string fetchProductHtml(SiteContext &ctx, const std::string &host, const std::string &asin) {
         if (host == "www.amazon.ie") {
             return ctx.fetchText("https://" + host + "/dp/" + asin);
         }

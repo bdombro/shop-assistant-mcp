@@ -4,9 +4,9 @@
 
 namespace shop::sites {
 
-inline const Delivery BROOKS_DELIVERY{ "available", 2, 4, std::nullopt, "site default" };
+inline const Delivery BROOKS_DELIVERY{"available", 2, 4, std::nullopt, "site default"};
 
-inline std::vector<Pickup> parseBrooksBranches(std::string_view html, const Near& near) {
+inline std::vector<Pickup> parseBrooksBranches(std::string_view html, const Near &near) {
     static const std::regex markerRe(R"("branchList":\s*\[)");
     std::string s(html);
     std::sregex_iterator it(s.begin(), s.end(), markerRe);
@@ -63,12 +63,14 @@ inline std::vector<Pickup> parseBrooksBranches(std::string_view html, const Near
     }
 
     std::vector<Pickup> rows;
-    for (const auto& b : parsed->get<slimr::Json::array_t>()) {
-        if (!b.is_object()) continue;
+    for (const auto &b : parsed->get<slimr::Json::array_t>()) {
+        if (!b.is_object())
+            continue;
         std::string name = b.contains("name") ? jsonString(b["name"]) : "";
         std::string latStr = b.contains("lat") ? jsonString(b["lat"]) : "";
         std::string lngStr = b.contains("lng") ? jsonString(b["lng"]) : "";
-        if (latStr.empty() || lngStr.empty()) continue;
+        if (latStr.empty() || lngStr.empty())
+            continue;
 
         double bLat = 0.0, bLon = 0.0;
         try {
@@ -79,11 +81,12 @@ inline std::vector<Pickup> parseBrooksBranches(std::string_view html, const Near
         }
 
         double km = distanceKm(near.lat, near.lon, bLat, bLon);
-        if (km > near.radiusKm) continue;
+        if (km > near.radiusKm)
+            continue;
 
         std::optional<int> qty;
         if (b.contains("stock") && b["stock"].is_object()) {
-            for (const auto& [_, qVal] : b["stock"].get<slimr::Json::object_t>()) {
+            for (const auto &[_, qVal] : b["stock"].get<slimr::Json::object_t>()) {
                 if (qVal.is_number()) {
                     qty = static_cast<int>(qVal.get_number());
                     break;
@@ -107,7 +110,7 @@ inline std::vector<Pickup> parseBrooksBranches(std::string_view html, const Near
         rows.push_back(std::move(p));
     }
 
-    std::sort(rows.begin(), rows.end(), [](const Pickup& a, const Pickup& b) {
+    std::sort(rows.begin(), rows.end(), [](const Pickup &a, const Pickup &b) {
         return a.km < b.km;
     });
     return rows;
@@ -123,13 +126,13 @@ inline SearchResult parseBrooksSearch(std::string_view html, std::string_view ch
         std::string bText = cleanText(body);
         static const std::regex noResRe(R"(returned no results)", std::regex::icase);
         if (std::regex_search(bText, noResRe)) {
-            return SearchResult{ {}, std::nullopt, {} };
+            return SearchResult{{}, std::nullopt, {}};
         }
         throw std::runtime_error("brooks: no product grid on the search page (layout changed?)");
     }
 
     std::vector<Offer> offers;
-    for (const auto& li : items) {
+    for (const auto &li : items) {
         auto link = li.querySelector("a.product-name");
         std::string href = link ? link->attr("href").value_or("") : "";
 
@@ -149,7 +152,8 @@ inline SearchResult parseBrooksSearch(std::string_view html, std::string_view ch
         if (priceBox) {
             amount = parsePrice(cleanText(priceBox->querySelector(".price-including-tax .price")));
         }
-        if (href.empty() || sku.empty() || !amount.has_value()) continue;
+        if (href.empty() || sku.empty() || !amount.has_value())
+            continue;
 
         std::optional<double> exVat;
         std::optional<double> was;
@@ -165,7 +169,7 @@ inline SearchResult parseBrooksSearch(std::string_view html, std::string_view ch
         Delivery del = BROOKS_DELIVERY;
         static const std::regex unavailRe(R"(unavailable|not available)", std::regex::icase);
         if (std::regex_search(deliveryStr, unavailRe)) {
-            del = Delivery{ "unavailable", std::nullopt, std::nullopt, std::nullopt, "listing" };
+            del = Delivery{"unavailable", std::nullopt, std::nullopt, std::nullopt, "listing"};
         }
 
         std::map<std::string, slimr::Json> details;
@@ -178,8 +182,9 @@ inline SearchResult parseBrooksSearch(std::string_view html, std::string_view ch
         o.id = sku;
         o.url = canonicalUrl(href, BASE);
         o.name = name;
-        o.price = Price{ *amount, "EUR", (was.has_value() && *was > *amount) ? was : std::nullopt, true };
-        if (quantity.has_value()) o.quantity = quantity;
+        o.price = Price{*amount, "EUR", (was.has_value() && *was > *amount) ? was : std::nullopt, true};
+        if (quantity.has_value())
+            o.quantity = quantity;
         o.delivery = del;
         o.details = std::move(details);
         o.checkedAt = std::string(checkedAt);
@@ -190,10 +195,11 @@ inline SearchResult parseBrooksSearch(std::string_view html, std::string_view ch
     auto toolbarNum = document.querySelector("#toolbar-amount .toolbar-number:last-child");
     if (toolbarNum) {
         auto val = parsePrice(cleanText(toolbarNum));
-        if (val.has_value() && *val > 0) total = static_cast<int>(*val);
+        if (val.has_value() && *val > 0)
+            total = static_cast<int>(*val);
     }
 
-    return SearchResult{ std::move(offers), total, {} };
+    return SearchResult{std::move(offers), total, {}};
 }
 
 inline Offer parseBrooksProduct(std::string_view html, std::string_view checkedAt) {
@@ -223,7 +229,7 @@ inline Offer parseBrooksProduct(std::string_view html, std::string_view checkedA
     auto was = parsePrice(cleanText(document.querySelector(".old-price .price")));
 
     std::map<std::string, slimr::Json> details;
-    for (const auto& tr : document.querySelectorAll("#product-attribute-specs-table tr")) {
+    for (const auto &tr : document.querySelectorAll("#product-attribute-specs-table tr")) {
         std::string label = cleanText(tr.querySelector("th"));
         std::string val = cleanText(tr.querySelector("td"));
         if (!label.empty() && !val.empty()) {
@@ -243,7 +249,10 @@ inline Offer parseBrooksProduct(std::string_view html, std::string_view checkedA
     std::smatch dm;
     std::optional<int> days;
     if (std::regex_search(lead, dm, daysRe)) {
-        try { days = std::stoi(dm[1].str()); } catch (...) {}
+        try {
+            days = std::stoi(dm[1].str());
+        } catch (...) {
+        }
     }
 
     std::optional<bool> inStock;
@@ -271,9 +280,9 @@ inline Offer parseBrooksProduct(std::string_view html, std::string_view checkedA
 
     Delivery del = BROOKS_DELIVERY;
     if (inStock.has_value() && !*inStock) {
-        del = Delivery{ "unavailable", std::nullopt, std::nullopt, std::nullopt, "product" };
+        del = Delivery{"unavailable", std::nullopt, std::nullopt, std::nullopt, "product"};
     } else if (days.has_value()) {
-        del = Delivery{ "available", *days, *days, std::nullopt, "product" };
+        del = Delivery{"available", *days, *days, std::nullopt, "product"};
     }
 
     Offer o;
@@ -281,10 +290,13 @@ inline Offer parseBrooksProduct(std::string_view html, std::string_view checkedA
     o.id = sku;
     o.url = canonicalUrl(productUrl, BASE);
     o.name = name;
-    if (brand.has_value()) o.brand = *brand;
-    o.price = Price{ *amount, "EUR", (was.has_value() && *was > *amount) ? was : std::nullopt, true };
-    if (quantity.has_value()) o.quantity = quantity;
-    if (inStock.has_value()) o.inStock = *inStock;
+    if (brand.has_value())
+        o.brand = *brand;
+    o.price = Price{*amount, "EUR", (was.has_value() && *was > *amount) ? was : std::nullopt, true};
+    if (quantity.has_value())
+        o.quantity = quantity;
+    if (inStock.has_value())
+        o.inStock = *inStock;
     o.delivery = del;
     o.details = std::move(details);
     o.checkedAt = std::string(checkedAt);
@@ -292,19 +304,19 @@ inline Offer parseBrooksProduct(std::string_view html, std::string_view checkedA
 }
 
 class BrooksAdapter : public SiteAdapter {
-public:
+  public:
     std::string id() const override { return "brooks"; }
 
     std::string matchHint() const override {
         return "Brooks search is loose and returns related items; use the product type and size in the shop's wording, or a product code.";
     }
 
-    SearchResult search(SiteContext& ctx, const SearchQuery& q) override {
+    SearchResult search(SiteContext &ctx, const SearchQuery &q) override {
         const std::string BASE = "https://brooksonline.ie/";
         std::string enc = urlEncode(q.query);
         // replace %20 with +
         for (size_t i = 0; i + 2 < enc.size(); ++i) {
-            if (enc[i] == '%' && enc[i+1] == '2' && enc[i+2] == '0') {
+            if (enc[i] == '%' && enc[i + 1] == '2' && enc[i + 2] == '0') {
                 enc.replace(i, 3, "+");
             }
         }
@@ -313,13 +325,13 @@ public:
         return parseBrooksSearch(html, "2026-10-16T00:00:00Z");
     }
 
-    std::vector<Offer> offer(SiteContext& ctx, const OfferRef& ref, const OfferOptions& options) override {
+    std::vector<Offer> offer(SiteContext &ctx, const OfferRef &ref, const OfferOptions &options) override {
         (void)options;
         const std::string BASE = "https://brooksonline.ie/";
         std::string url = ref.url.value_or("");
         if (url.empty() && ref.id.has_value()) {
-            auto searchRes = search(ctx, SearchQuery{ *ref.id, {}, 5 });
-            for (const auto& o : searchRes.offers) {
+            auto searchRes = search(ctx, SearchQuery{*ref.id, {}, 5});
+            for (const auto &o : searchRes.offers) {
                 if (o.id == *ref.id) {
                     url = o.url;
                     break;
@@ -333,12 +345,12 @@ public:
             throw std::runtime_error("brooks: offer needs an id or url");
         }
         std::string html = ctx.fetchText(canonicalUrl(url, BASE));
-        return { parseBrooksProduct(html, "2026-10-16T00:00:00Z") };
+        return {parseBrooksProduct(html, "2026-10-16T00:00:00Z")};
     }
 
-    std::vector<Offer> pickup(SiteContext& ctx, const std::vector<Offer>& offers, const Near& near) override {
+    std::vector<Offer> pickup(SiteContext &ctx, const std::vector<Offer> &offers, const Near &near) override {
         std::vector<Offer> out;
-        for (const auto& offer : offers) {
+        for (const auto &offer : offers) {
             std::string html = ctx.fetchText(offer.url);
             Offer copy = offer;
             copy.pickup = parseBrooksBranches(html, near);

@@ -32,15 +32,15 @@ struct CdpEvent {
 };
 
 class CdpClientInterface {
-public:
+  public:
     virtual ~CdpClientInterface() = default;
 
     virtual slimr::Json send(
         std::string_view method,
-        const slimr::Json& params = slimr::Json{},
+        const slimr::Json &params = slimr::Json{},
         std::optional<std::string_view> sessionId = std::nullopt) = 0;
 
-    virtual size_t on(std::function<void(const CdpEvent&)> listener) = 0;
+    virtual size_t on(std::function<void(const CdpEvent &)> listener) = 0;
     virtual void off(size_t id) = 0;
     virtual void onClose(std::function<void()> listener) = 0;
     virtual bool isOpen() const noexcept = 0;
@@ -115,7 +115,7 @@ public:
         if (nodeId == 0) {
             auto evalRes = evaluate(sessionId, "document.documentElement.outerHTML", true, false);
             if (evalRes.is_object() && evalRes.contains("result")) {
-                const auto& r = evalRes["result"];
+                const auto &r = evalRes["result"];
                 if (r.is_object() && r.contains("value") && r["value"].is_string()) {
                     return r["value"].get<std::string>();
                 }
@@ -142,8 +142,10 @@ public:
         std::string_view key = "") {
         slimr::Json::object_t params;
         params["type"] = std::string(type);
-        if (!text.empty()) params["text"] = std::string(text);
-        if (!key.empty()) params["key"] = std::string(key);
+        if (!text.empty())
+            params["text"] = std::string(text);
+        if (!key.empty())
+            params["key"] = std::string(key);
         (void)send("Input.dispatchKeyEvent", slimr::Json(std::move(params)), sessionId);
     }
 
@@ -153,7 +155,8 @@ public:
         int quality = 80) {
         slimr::Json::object_t params;
         params["format"] = std::string(format);
-        if (format == "jpeg") params["quality"] = quality;
+        if (format == "jpeg")
+            params["quality"] = quality;
         auto res = send("Page.captureScreenshot", slimr::Json(std::move(params)), sessionId);
         if (res.is_object() && res.contains("data") && res["data"].is_string()) {
             return res["data"].get<std::string>();
@@ -193,14 +196,14 @@ public:
         std::string_view sessionId,
         std::string_view requestId,
         int responseCode,
-        const std::map<std::string, std::string>& headers = {},
+        const std::map<std::string, std::string> &headers = {},
         std::string_view body = "") {
         slimr::Json::object_t params;
         params["requestId"] = std::string(requestId);
         params["responseCode"] = responseCode;
         if (!headers.empty()) {
             slimr::Json::array_t headerList;
-            for (const auto& [k, v] : headers) {
+            for (const auto &[k, v] : headers) {
                 slimr::Json::object_t h;
                 h["name"] = k;
                 h["value"] = v;
@@ -216,7 +219,7 @@ public:
 };
 
 class CdpClient : public CdpClientInterface {
-public:
+  public:
     CdpClient() = default;
 
     static std::unique_ptr<CdpClient> connect(int port, long timeoutMs = 5000) {
@@ -249,7 +252,7 @@ public:
 
     slimr::Json send(
         std::string_view method,
-        const slimr::Json& params = slimr::Json{},
+        const slimr::Json &params = slimr::Json{},
         std::optional<std::string_view> sessionId = std::nullopt) override {
         std::lock_guard<std::recursive_mutex> ioLock(io_mu_);
         if (!isOpenLocked()) {
@@ -276,7 +279,8 @@ public:
         auto start = std::chrono::steady_clock::now();
         while (isOpenFlag()) {
             auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now() - start).count();
+                               std::chrono::steady_clock::now() - start)
+                               .count();
             if (elapsed > 30000) {
                 throw std::runtime_error("CDP " + std::string(method) + " got no answer within 30s");
             }
@@ -295,7 +299,7 @@ public:
                     int64_t respId = (*msg)["id"].get<int64_t>();
                     if (respId == id) {
                         if (msg->contains("error") && !(*msg)["error"].is_null()) {
-                            const auto& err = (*msg)["error"];
+                            const auto &err = (*msg)["error"];
                             std::string errMsg = err.contains("message") ? err["message"].get<std::string>() : "unknown error";
                             if (err.contains("data") && err["data"].is_string()) {
                                 errMsg += ": " + err["data"].get<std::string>();
@@ -310,7 +314,8 @@ public:
                 } else if (msg->contains("method")) {
                     CdpEvent ev;
                     ev.method = (*msg)["method"].get<std::string>();
-                    if (msg->contains("params")) ev.params = (*msg)["params"];
+                    if (msg->contains("params"))
+                        ev.params = (*msg)["params"];
                     if (msg->contains("sessionId") && (*msg)["sessionId"].is_string()) {
                         ev.sessionId = (*msg)["sessionId"].get<std::string>();
                     }
@@ -321,7 +326,7 @@ public:
         throw std::runtime_error(CDP_CLOSED);
     }
 
-    size_t on(std::function<void(const CdpEvent&)> listener) override {
+    size_t on(std::function<void(const CdpEvent &)> listener) override {
         std::lock_guard<std::mutex> lock(state_mu_);
         size_t id = ++listener_seq_;
         listeners_[id] = std::move(listener);
@@ -358,14 +363,14 @@ public:
         shutdown();
     }
 
-private:
+  private:
     mutable std::recursive_mutex io_mu_;
     mutable std::mutex state_mu_;
     slimr::WebSocket ws_;
     int64_t seq_ = 0;
     size_t listener_seq_ = 0;
     bool is_open_ = false;
-    std::map<size_t, std::function<void(const CdpEvent&)>> listeners_;
+    std::map<size_t, std::function<void(const CdpEvent &)>> listeners_;
     std::vector<std::function<void()>> close_listeners_;
 
     bool isOpenFlag() const noexcept {
@@ -377,13 +382,13 @@ private:
         return isOpenFlag() && ws_.isConnected();
     }
 
-    void dispatchListeners(const CdpEvent& ev) {
-        std::map<size_t, std::function<void(const CdpEvent&)>> copy;
+    void dispatchListeners(const CdpEvent &ev) {
+        std::map<size_t, std::function<void(const CdpEvent &)>> copy;
         {
             std::lock_guard<std::mutex> lock(state_mu_);
             copy = listeners_;
         }
-        for (const auto& [_, l] : copy) {
+        for (const auto &[_, l] : copy) {
             l(ev);
         }
     }
@@ -392,13 +397,14 @@ private:
         std::vector<std::function<void()>> closeCopy;
         {
             std::lock_guard<std::mutex> lock(state_mu_);
-            if (!is_open_) return;
+            if (!is_open_)
+                return;
             is_open_ = false;
             closeCopy = std::move(close_listeners_);
             close_listeners_.clear();
         }
         ws_.close();
-        for (const auto& l : closeCopy) {
+        for (const auto &l : closeCopy) {
             l();
         }
     }

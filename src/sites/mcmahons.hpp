@@ -20,8 +20,7 @@ inline core::Delivery mcmahonsDeliveryFor(std::optional<bool> inStock) {
         .minDays = 1,
         .maxDays = 2,
         .cost = 15.0,
-        .source = "site default"
-    };
+        .source = "site default"};
 }
 
 struct McMahonsPriceResult {
@@ -29,22 +28,27 @@ struct McMahonsPriceResult {
     std::optional<double> exVat;
 };
 
-inline std::optional<McMahonsPriceResult> mcmahonsPriceFrom(const core::Node& root) {
+inline std::optional<McMahonsPriceResult> mcmahonsPriceFrom(const core::Node &root) {
     auto n = [&](std::string_view type) -> std::optional<double> {
         std::string sel = std::string("span[data-price-type=\"") + std::string(type) + "\"]";
         auto span = root.querySelector(sel);
-        if (!span) return std::nullopt;
+        if (!span)
+            return std::nullopt;
         auto amt = span->attr("data-price-amount");
-        if (!amt) return std::nullopt;
+        if (!amt)
+            return std::nullopt;
         try {
             double v = std::stod(*amt);
-            if (std::isfinite(v) && v > 0.0) return round2(v);
-        } catch (...) {}
+            if (std::isfinite(v) && v > 0.0)
+                return round2(v);
+        } catch (...) {
+        }
         return std::nullopt;
     };
 
     auto finalPrice = n("finalPrice");
-    if (!finalPrice) return std::nullopt;
+    if (!finalPrice)
+        return std::nullopt;
 
     auto oldPrice = n("oldPrice");
     auto basePrice = n("basePrice");
@@ -60,9 +64,9 @@ inline std::optional<McMahonsPriceResult> mcmahonsPriceFrom(const core::Node& ro
     return McMahonsPriceResult{.price = p, .exVat = basePrice};
 }
 
-inline core::Offer parseProduct(std::string_view html, const std::string& checkedAt);
+inline core::Offer parseProduct(std::string_view html, const std::string &checkedAt);
 
-inline core::SearchResult parseSearch(std::string_view html, const std::string& checkedAt) {
+inline core::SearchResult parseSearch(std::string_view html, const std::string &checkedAt) {
     auto doc = core::Document::parse(html);
     const std::string BASE = "https://www.mcmahons.ie/";
 
@@ -72,28 +76,31 @@ inline core::SearchResult parseSearch(std::string_view html, const std::string& 
         if (core::findLd(blocks, "Product")) {
             return core::SearchResult{
                 .offers = {parseProduct(html, checkedAt)},
-                .total = 1
-            };
+                .total = 1};
         }
     }
 
     std::vector<core::Offer> offers;
     auto cards = doc.querySelectorAll("li.product-item");
-    for (const auto& card : cards) {
+    for (const auto &card : cards) {
         auto a = card.querySelector("a.product-name");
-        if (!a) continue;
+        if (!a)
+            continue;
         auto hrefOpt = a->attr("href");
-        if (!hrefOpt) continue;
+        if (!hrefOpt)
+            continue;
         std::string href = *hrefOpt;
         std::string name = cleanText(a->text());
 
         static const std::regex skuRe(R"(-(\d+)/?$)");
         std::smatch m;
-        if (!std::regex_search(href, m, skuRe)) continue;
+        if (!std::regex_search(href, m, skuRe))
+            continue;
         std::string sku = m[1].str();
 
         auto priceRes = mcmahonsPriceFrom(card);
-        if (!priceRes || name.empty() || sku.empty()) continue;
+        if (!priceRes || name.empty() || sku.empty())
+            continue;
 
         std::map<std::string, slimr::Json> details;
         if (priceRes->exVat.has_value()) {
@@ -101,7 +108,8 @@ inline core::SearchResult parseSearch(std::string_view html, const std::string& 
         }
 
         std::string id = sku;
-        for (char& c : id) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+        for (char &c : id)
+            c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
 
         core::Offer offer;
         offer.site = "mcmahons";
@@ -110,7 +118,8 @@ inline core::SearchResult parseSearch(std::string_view html, const std::string& 
         offer.name = name;
         offer.price = priceRes->price;
         offer.delivery = mcmahonsDeliveryFor(std::nullopt);
-        if (!details.empty()) offer.details = std::move(details);
+        if (!details.empty())
+            offer.details = std::move(details);
         offer.checkedAt = checkedAt;
 
         offers.push_back(std::move(offer));
@@ -127,15 +136,17 @@ inline core::SearchResult parseSearch(std::string_view html, const std::string& 
             s.erase(std::remove(s.begin(), s.end(), ','), s.end());
             try {
                 int t = std::stoi(s);
-                if (t > 0) total = t;
-            } catch (...) {}
+                if (t > 0)
+                    total = t;
+            } catch (...) {
+            }
         }
     }
 
     return core::SearchResult{.offers = std::move(offers), .total = total};
 }
 
-inline core::Offer parseProduct(std::string_view html, const std::string& checkedAt) {
+inline core::Offer parseProduct(std::string_view html, const std::string &checkedAt) {
     auto doc = core::Document::parse(html);
     const std::string BASE = "https://www.mcmahons.ie/";
 
@@ -147,7 +158,8 @@ inline core::Offer parseProduct(std::string_view html, const std::string& checke
         sku = cleanText((*ld)["sku"].get<std::string>());
     } else {
         auto skuEl = doc.querySelector(".product.attribute.sku [itemprop=\"sku\"]");
-        if (skuEl) sku = cleanText(skuEl->text());
+        if (skuEl)
+            sku = cleanText(skuEl->text());
     }
 
     auto priceBox = doc.querySelector(".product-info-price");
@@ -158,7 +170,7 @@ inline core::Offer parseProduct(std::string_view html, const std::string& checke
     }
 
     std::map<std::string, std::string> specs;
-    for (const auto& tr : doc.querySelectorAll("#product-attribute-specs-table tr")) {
+    for (const auto &tr : doc.querySelectorAll("#product-attribute-specs-table tr")) {
         auto th = tr.querySelector("th");
         auto td = tr.querySelector("td");
         if (th && td) {
@@ -198,7 +210,7 @@ inline core::Offer parseProduct(std::string_view html, const std::string& checke
     if (priceRes->exVat.has_value()) {
         details["Price ex VAT"] = slimr::Json(*priceRes->exVat);
     }
-    for (const auto& [k, v] : specs) {
+    for (const auto &[k, v] : specs) {
         details[k] = slimr::Json(v);
     }
 
@@ -207,7 +219,8 @@ inline core::Offer parseProduct(std::string_view html, const std::string& checke
         auto descDoc = core::Document::parse(std::string("<div>") + rawDesc + "</div>");
         std::string desc = cleanText(descDoc.body().text());
         if (!desc.empty()) {
-            if (desc.size() > 600) desc = desc.substr(0, 600);
+            if (desc.size() > 600)
+                desc = desc.substr(0, 600);
             details["Description"] = slimr::Json(desc);
         }
     }
@@ -224,7 +237,8 @@ inline core::Offer parseProduct(std::string_view html, const std::string& checke
         auto canEl = doc.querySelector("link[rel=\"canonical\"]");
         if (canEl) {
             auto href = canEl->attr("href");
-            if (href) url = *href;
+            if (href)
+                url = *href;
         }
     }
 
@@ -233,17 +247,21 @@ inline core::Offer parseProduct(std::string_view html, const std::string& checke
                            : "";
 
     std::string id = sku;
-    for (char& c : id) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    for (char &c : id)
+        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
 
     core::Offer offer;
     offer.site = "mcmahons";
     offer.id = id;
     offer.url = core::canonicalUrl(url, BASE);
     offer.name = name;
-    if (brand) offer.brand = *brand;
-    if (category) offer.category = *category;
+    if (brand)
+        offer.brand = *brand;
+    if (category)
+        offer.category = *category;
     offer.price = priceRes->price;
-    if (inStock.has_value()) offer.inStock = *inStock;
+    if (inStock.has_value())
+        offer.inStock = *inStock;
     offer.delivery = mcmahonsDeliveryFor(inStock);
     offer.details = std::move(details);
     offer.checkedAt = checkedAt;
@@ -251,7 +269,7 @@ inline core::Offer parseProduct(std::string_view html, const std::string& checke
     return offer;
 }
 
-inline std::vector<core::Pickup> parseStock(std::string_view html, const core::Near& near) {
+inline std::vector<core::Pickup> parseStock(std::string_view html, const core::Near &near) {
     const std::string tag = "<script type=\"text/x-magento-init\">";
     size_t at = html.find("\"kickModelSelCollectionBranch\"");
     if (at == std::string_view::npos) {
@@ -276,19 +294,19 @@ inline std::vector<core::Pickup> parseStock(std::string_view html, const core::N
     }
 
     std::optional<int64_t> productId;
-    const slimr::Json::array_t* branchList = nullptr;
+    const slimr::Json::array_t *branchList = nullptr;
 
     try {
         if (parsed->contains("*") && (*parsed)["*"].is_object()) {
-            const auto& star = (*parsed)["*"];
+            const auto &star = (*parsed)["*"];
             if (star.contains("Magento_Ui/js/core/app") && star["Magento_Ui/js/core/app"].is_object()) {
-                const auto& app = star["Magento_Ui/js/core/app"];
+                const auto &app = star["Magento_Ui/js/core/app"];
                 if (app.contains("components") && app["components"].is_object()) {
-                    const auto& comps = app["components"];
+                    const auto &comps = app["components"];
                     if (comps.contains("kickModelSelCollectionBranch") && comps["kickModelSelCollectionBranch"].is_object()) {
-                        const auto& comp = comps["kickModelSelCollectionBranch"];
+                        const auto &comp = comps["kickModelSelCollectionBranch"];
                         if (comp.contains("config") && comp["config"].is_object()) {
-                            const auto& config = comp["config"];
+                            const auto &config = comp["config"];
                             if (config.contains("productId") && config["productId"].is_number()) {
                                 productId = config["productId"].as<int64_t>();
                             }
@@ -300,34 +318,42 @@ inline std::vector<core::Pickup> parseStock(std::string_view html, const core::N
                 }
             }
         }
-    } catch (...) {}
+    } catch (...) {
+    }
 
     if (!branchList) {
         return {};
     }
 
     std::vector<core::Pickup> rows;
-    for (const auto& b : *branchList) {
-        if (!b.is_object()) continue;
+    for (const auto &b : *branchList) {
+        if (!b.is_object())
+            continue;
         std::string store = b.contains("name") && b["name"].is_string() ? cleanText(b["name"].get<std::string>()) : "";
-        if (store.empty()) continue;
+        if (store.empty())
+            continue;
 
         double lat = 0.0, lng = 0.0;
         try {
-            if (b.contains("lat") && b["lat"].is_string()) lat = std::stod(b["lat"].get<std::string>());
-            else if (b.contains("lat") && b["lat"].is_number()) lat = b["lat"].as<double>();
-            if (b.contains("lng") && b["lng"].is_string()) lng = std::stod(b["lng"].get<std::string>());
-            else if (b.contains("lng") && b["lng"].is_number()) lng = b["lng"].as<double>();
+            if (b.contains("lat") && b["lat"].is_string())
+                lat = std::stod(b["lat"].get<std::string>());
+            else if (b.contains("lat") && b["lat"].is_number())
+                lat = b["lat"].as<double>();
+            if (b.contains("lng") && b["lng"].is_string())
+                lng = std::stod(b["lng"].get<std::string>());
+            else if (b.contains("lng") && b["lng"].is_number())
+                lng = b["lng"].as<double>();
         } catch (...) {
             continue;
         }
 
         double km = std::round(core::distanceKm(near.lat, near.lon, lat, lng) * 10.0) / 10.0;
-        if (!(km <= near.radiusKm)) continue;
+        if (!(km <= near.radiusKm))
+            continue;
 
         std::optional<int> qty;
         if (b.contains("stock") && b["stock"].is_object()) {
-            const auto& stockObj = b["stock"].get<slimr::Json::object_t>();
+            const auto &stockObj = b["stock"].get<slimr::Json::object_t>();
             if (productId.has_value()) {
                 std::string pidStr = std::to_string(*productId);
                 auto it = stockObj.find(pidStr);
@@ -336,7 +362,7 @@ inline std::vector<core::Pickup> parseStock(std::string_view html, const core::N
                 }
             }
             if (!qty.has_value() && !stockObj.empty()) {
-                const auto& firstVal = stockObj.begin()->second;
+                const auto &firstVal = stockObj.begin()->second;
                 if (firstVal.is_number()) {
                     qty = firstVal.as<int>();
                 }
@@ -345,21 +371,25 @@ inline std::vector<core::Pickup> parseStock(std::string_view html, const core::N
 
         std::string status = "unknown";
         if (qty.has_value()) {
-            if (*qty <= 0) status = "out";
-            else if (*qty <= 2) status = "low";
-            else status = "in stock";
+            if (*qty <= 0)
+                status = "out";
+            else if (*qty <= 2)
+                status = "low";
+            else
+                status = "in stock";
         }
 
         core::Pickup p;
         p.store = store;
         p.km = km;
         p.status = status;
-        if (qty.has_value()) p.qty = *qty;
+        if (qty.has_value())
+            p.qty = *qty;
 
         rows.push_back(std::move(p));
     }
 
-    std::sort(rows.begin(), rows.end(), [](const core::Pickup& a, const core::Pickup& b) {
+    std::sort(rows.begin(), rows.end(), [](const core::Pickup &a, const core::Pickup &b) {
         return a.km < b.km;
     });
 
@@ -367,28 +397,29 @@ inline std::vector<core::Pickup> parseStock(std::string_view html, const core::N
 }
 
 class McMahons : public core::SiteAdapter {
-public:
+  public:
     std::string id() const override { return "mcmahons"; }
     bool deliveryOnly() const override { return false; }
     std::string matchHint() const override {
         return "McMahons matches search words loosely and returns related items too; check the titles, and try the product type or the code alone.";
     }
 
-    core::SearchResult search(core::SiteContext& ctx, const core::SearchQuery& q) override {
+    core::SearchResult search(core::SiteContext &ctx, const core::SearchQuery &q) override {
         std::string url = "https://www.mcmahons.ie/catalogsearch/result/?q=" + urlEncode(q.query, true);
         std::string html = ctx.fetchText(url);
         return parseSearch(html, "2026-11-10T00:00:00Z");
     }
 
-    std::vector<core::Offer> offer(core::SiteContext& ctx, const core::OfferRef& ref, const core::OfferOptions& options) override {
+    std::vector<core::Offer> offer(core::SiteContext &ctx, const core::OfferRef &ref, const core::OfferOptions &options) override {
         (void)options;
         const std::string BASE = "https://www.mcmahons.ie/";
         std::string url = ref.url.value_or("");
         if (url.empty()) {
-            if (!ref.id) throw std::runtime_error("mcmahons: give a product id or url");
+            if (!ref.id)
+                throw std::runtime_error("mcmahons: give a product id or url");
             std::string id = *ref.id;
             auto sr = search(ctx, core::SearchQuery{.query = id, .limit = 20});
-            for (const auto& o : sr.offers) {
+            for (const auto &o : sr.offers) {
                 if (toLower(o.id) == toLower(id)) {
                     url = o.url;
                     break;
@@ -402,7 +433,7 @@ public:
         return {parseProduct(html, "2026-11-10T00:00:00Z")};
     }
 
-    std::vector<core::Offer> pickup(core::SiteContext& ctx, const std::vector<core::Offer>& offers, const core::Near& near) override {
+    std::vector<core::Offer> pickup(core::SiteContext &ctx, const std::vector<core::Offer> &offers, const core::Near &near) override {
         const std::string BASE = "https://www.mcmahons.ie/";
         std::vector<core::Offer> out;
         for (auto o : offers) {

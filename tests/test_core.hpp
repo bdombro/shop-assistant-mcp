@@ -2,14 +2,14 @@
 
 #include "test.hpp"
 
-#include "core/dom.hpp"
-#include "core/policy.hpp"
-#include "core/markdown.hpp"
-#include "core/db.hpp"
-#include "core/cdp.hpp"
-#include "core/adapter.hpp"
-#include "core/pages.hpp"
 #include "app.hpp"
+#include "core/adapter.hpp"
+#include "core/cdp.hpp"
+#include "core/db.hpp"
+#include "core/dom.hpp"
+#include "core/markdown.hpp"
+#include "core/pages.hpp"
+#include "core/policy.hpp"
 #include "mcp_http.hpp"
 
 #include <arpa/inet.h>
@@ -28,12 +28,12 @@
 
 namespace shop::testing {
 
-inline std::string readFixture(const std::string& relPath) {
+inline std::string readFixture(const std::string &relPath) {
     std::vector<std::filesystem::path> candidates = {
         std::filesystem::path("fixtures") / relPath,
         std::filesystem::path("tests/fixtures") / relPath,
     };
-    for (const auto& p : candidates) {
+    for (const auto &p : candidates) {
         if (std::filesystem::exists(p)) {
             std::ifstream file(p, std::ios::binary);
             if (file) {
@@ -62,7 +62,7 @@ TEST_CASE("reporting is opt-in and follows BUGSINK_DSN after app construction") 
             }
         }
     };
-    const char* previous = std::getenv("BUGSINK_DSN");
+    const char *previous = std::getenv("BUGSINK_DSN");
     RestoreEnvironment restore{previous ? std::optional<std::string>(previous) : std::nullopt};
     unsetenv("BUGSINK_DSN");
     auto app = shop::make_shop_assistant_app();
@@ -200,7 +200,7 @@ TEST_SUITE("markdown & cleaner") {
         auto page = cleanHtml(html, "https://www.shop.ie/p/123");
 
         std::string all;
-        for (const auto& s : page.sections) {
+        for (const auto &s : page.sections) {
             all += s.markdown + "\n";
         }
 
@@ -225,7 +225,7 @@ TEST_SUITE("markdown & cleaner") {
             "© Shop Ltd",
             "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
         };
-        for (const auto& bad : forbidden) {
+        for (const auto &bad : forbidden) {
             CHECK(all.find(bad) == std::string::npos);
         }
 
@@ -234,15 +234,14 @@ TEST_SUITE("markdown & cleaner") {
 
         std::vector<std::string> headings;
         std::vector<std::string> ids;
-        for (const auto& s : page.sections) {
+        for (const auto &s : page.sections) {
             headings.push_back(s.heading);
             ids.push_back(s.id);
         }
         std::vector<std::string> expectedHeadings = {
             "Einhell TE-CD 18/40 Li Drill",
             "Specifications",
-            "Customer reviews"
-        };
+            "Customer reviews"};
         std::vector<std::string> expectedIds = {"s1", "s2", "s3"};
         CHECK(headings == expectedHeadings);
         CHECK(ids == expectedIds);
@@ -277,7 +276,7 @@ TEST_SUITE("markdown & cleaner") {
         html += "</ul></main>";
 
         auto p = cleanHtml(html, "https://shop.ie/");
-        for (const auto& s : p.sections) {
+        for (const auto &s : p.sections) {
             CHECK(s.markdown != "#");
         }
 
@@ -291,7 +290,7 @@ TEST_SUITE("markdown & cleaner") {
     }
 
     TEST_CASE("pageView: one budget covers JSON-LD and outline (synthetic search fixtures)") {
-        for (const std::string& site : {"amazon", "diy"}) {
+        for (const std::string &site : {"amazon", "diy"}) {
             std::string html = readFixture(site + "/search.html");
             auto v = pageView(cleanHtml(html, "https://www." + site + ".ie/"), 1000);
             int estTokens = estimateTokens(slimr::write_json(v));
@@ -337,7 +336,8 @@ TEST_SUITE("markdown & cleaner") {
         auto p = cleanHtml(html, "https://shop.ie/");
 
         std::string md;
-        for (const auto& s : p.sections) md += s.markdown + "\n";
+        for (const auto &s : p.sections)
+            md += s.markdown + "\n";
 
         static const std::regex badRe(R"(data:image|javascript:|!\[)");
         CHECK(!std::regex_search(md, badRe));
@@ -425,8 +425,8 @@ Prices render as `€ 26 .95 INC VAT`.
             {"https://example.com/?u=screwfix.ie", std::nullopt},
         };
 
-        for (const auto& tc : cases) {
-            const auto* matched = siteForUrl(tc.url, sites);
+        for (const auto &tc : cases) {
+            const auto *matched = siteForUrl(tc.url, sites);
             if (tc.expected.has_value()) {
                 REQUIRE(matched != nullptr);
                 CHECK(matched->id == *tc.expected);
@@ -452,7 +452,7 @@ Prices render as `€ 26 .95 INC VAT`.
             {"https://shop.ie/basket?remove=1", "*remove=*", true},
         };
 
-        for (const auto& tc : cases) {
+        for (const auto &tc : cases) {
             CAPTURE(tc.url);
             CAPTURE(tc.pattern);
             CHECK(urlMatches(tc.url, tc.pattern) == tc.expected);
@@ -478,8 +478,7 @@ Prices render as `€ 26 .95 INC VAT`.
         std::vector<SitePolicy> sites = {shop, amazon};
         std::map<std::string, SiteState> states = {
             {"shop", {ReadState::on, WriteState::ask}},
-            {"amazon", {ReadState::on, WriteState::off}}
-        };
+            {"amazon", {ReadState::on, WriteState::off}}};
 
         auto req = [](std::string method, std::string url, std::string resType = "Fetch", std::string pageUrl = "https://www.shop.ie/p/1") {
             GuardRequest r;
@@ -667,14 +666,14 @@ TEST_SUITE("adapter helpers") {
         filters.brand = "bosch";
 
         auto res = applyFilters(offers, filters, {}, "EUR");
-        for (const auto& o : res.offers) {
+        for (const auto &o : res.offers) {
             CHECK(o.price.amount >= 20.0);
             CHECK(o.price.amount <= 80.0);
             CHECK(o.inStock != false);
             CHECK(o.brand == "Bosch");
         }
         // Check unit price calculation
-        for (const auto& o : res.offers) {
+        for (const auto &o : res.offers) {
             if (o.id == "4") {
                 CHECK(o.unitPrice == 20.0); // 40 / 2
             }
@@ -720,9 +719,12 @@ TEST_SUITE("http and concurrency") {
     TEST_CASE("http transport, server/discover, tools/list, CLI, and instructions") {
         struct LoopbackFd {
             int fd{-1};
-            ~LoopbackFd() { if (fd >= 0) ::close(fd); }
-            LoopbackFd(const LoopbackFd&) = delete;
-            LoopbackFd& operator=(const LoopbackFd&) = delete;
+            ~LoopbackFd() {
+                if (fd >= 0)
+                    ::close(fd);
+            }
+            LoopbackFd(const LoopbackFd &) = delete;
+            LoopbackFd &operator=(const LoopbackFd &) = delete;
             LoopbackFd() = default;
         };
 
@@ -736,13 +738,14 @@ TEST_SUITE("http and concurrency") {
             addr.sin_family = AF_INET;
             addr.sin_port = htons(port);
             REQUIRE(::inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr) == 1);
-            REQUIRE(::connect(sock.fd, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) == 0);
+            REQUIRE(::connect(sock.fd, reinterpret_cast<const sockaddr *>(&addr), sizeof(addr)) == 0);
 
             std::string req = "POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:" + std::to_string(port) + "\r\n"
-                              "Content-Type: application/json\r\n"
-                              "Accept: application/json, text/event-stream\r\n"
-                              "MCP-Protocol-Version: 2026-07-28\r\n"
-                              "Mcp-Method: " + std::string(method) + "\r\n";
+                                                                                                "Content-Type: application/json\r\n"
+                                                                                                "Accept: application/json, text/event-stream\r\n"
+                                                                                                "MCP-Protocol-Version: 2026-07-28\r\n"
+                                                                                                "Mcp-Method: " +
+                              std::string(method) + "\r\n";
             if (!toolName.empty()) {
                 req += "Mcp-Name: " + std::string(toolName) + "\r\n";
             }
@@ -762,7 +765,8 @@ TEST_SUITE("http and concurrency") {
                 pollfd pfd{sock.fd, POLLIN, 0};
                 REQUIRE(::poll(&pfd, 1, 5000) > 0);
                 ssize_t n = ::recv(sock.fd, buf, sizeof(buf), 0);
-                if (n <= 0) break;
+                if (n <= 0)
+                    break;
                 raw.append(buf, static_cast<size_t>(n));
             }
 
@@ -772,7 +776,8 @@ TEST_SUITE("http and concurrency") {
             REQUIRE(statusStart != std::string::npos);
             int status = std::stoi(raw.substr(statusStart + 1, 3));
             std::string payload = raw.substr(hdrEnd + 4);
-            if (payload.empty()) return {status, slimr::Json{}};
+            if (payload.empty())
+                return {status, slimr::Json{}};
             auto parsed = slimr::parse_json(payload);
             REQUIRE(parsed.has_value());
             return {status, std::move(*parsed)};
@@ -787,7 +792,7 @@ TEST_SUITE("http and concurrency") {
         {
             char arg0[] = "shop-assistant-mcp";
             char arg1[] = "status";
-            char* argv[] = {arg0, arg1, nullptr};
+            char *argv[] = {arg0, arg1, nullptr};
             CHECK(app.run(2, argv) == 0);
         }
 
@@ -797,7 +802,7 @@ TEST_SUITE("http and concurrency") {
             char arg1[] = "http";
             char arg2[] = "--host";
             char arg3[] = "0.0.0.0";
-            char* argv[] = {arg0, arg1, arg2, arg3, nullptr};
+            char *argv[] = {arg0, arg1, arg2, arg3, nullptr};
             CHECK(app.run(4, argv) == 1);
         }
         {
@@ -805,16 +810,16 @@ TEST_SUITE("http and concurrency") {
             char arg1[] = "http";
             char arg2[] = "--port";
             char arg3[] = "0";
-            char* argv[] = {arg0, arg1, arg2, arg3, nullptr};
+            char *argv[] = {arg0, arg1, arg2, arg3, nullptr};
             CHECK(app.run(4, argv) == 1);
         }
 
         // Ephemeral HTTP server roundtrip
         slimr::McpHttpServer server(app, slimr::HttpServerOptions{
-            .host = "127.0.0.1",
-            .port = 0,
-            .allowEphemeralPort = true,
-        });
+                                             .host = "127.0.0.1",
+                                             .port = 0,
+                                             .allowEphemeralPort = true,
+                                         });
         std::string err;
         REQUIRE(server.start(&err));
         const uint16_t port = server.boundPort();
@@ -837,15 +842,15 @@ TEST_SUITE("http and concurrency") {
                 std::string(kMeta) + "}}");
         CHECK(listStatus == 200);
         std::set<std::string> names;
-        for (const auto& t : listed["result"]["tools"].get<slimr::Json::array_t>()) {
+        for (const auto &t : listed["result"]["tools"].get<slimr::Json::array_t>()) {
             names.insert(t["name"].get<std::string>());
         }
         CHECK(names == std::set<std::string>{
-            "search", "offer", "reviews", "page", "themes",
-            "open", "navigate", "click", "fill", "fill_form",
-            "press_key", "wait_for", "evaluate", "snapshot",
-            "screen", "screenshot", "tab_open", "tab_close", "status",
-            "mcp_resource_read"});
+                           "search", "offer", "reviews", "page", "themes",
+                           "open", "navigate", "click", "fill", "fill_form",
+                           "press_key", "wait_for", "evaluate", "snapshot",
+                           "screen", "screenshot", "tab_open", "tab_close", "status",
+                           "mcp_resource_read"});
 
         auto [callStatus, called] = postMcp(
             port, "tools/call",
@@ -882,7 +887,8 @@ TEST_SUITE("http and concurrency") {
                 }
             });
         }
-        for (auto& w : workers) w.join();
+        for (auto &w : workers)
+            w.join();
         store.close();
 
         CdpClient cdp;
@@ -890,13 +896,14 @@ TEST_SUITE("http and concurrency") {
         for (int t = 0; t < 4; ++t) {
             cdpWorkers.emplace_back([&]() {
                 for (int i = 0; i < 25; ++i) {
-                    auto id = cdp.on([](const CdpEvent&) {});
+                    auto id = cdp.on([](const CdpEvent &) {});
                     (void)cdp.isOpen();
                     cdp.off(id);
                 }
             });
         }
-        for (auto& w : cdpWorkers) w.join();
+        for (auto &w : cdpWorkers)
+            w.join();
         cdp.close();
     }
 }

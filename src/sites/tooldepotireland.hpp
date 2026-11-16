@@ -25,8 +25,7 @@ inline const Delivery DELIVERY{
     .minDays = 1,
     .maxDays = 1,
     .cost = std::nullopt,
-    .source = "site default"
-};
+    .source = "site default"};
 
 struct StockInfo {
     bool inStock = false;
@@ -35,7 +34,7 @@ struct StockInfo {
     std::string stockText;
 };
 
-inline StockInfo stockOf(const slimr::Json& r) {
+inline StockInfo stockOf(const slimr::Json &r) {
     std::string t;
     if (r.contains("stock_availability") && r["stock_availability"].is_object() &&
         r["stock_availability"].contains("text") && r["stock_availability"]["text"].is_string()) {
@@ -59,15 +58,14 @@ inline StockInfo stockOf(const slimr::Json& r) {
         .inStock = (is_in_stock && is_purchasable),
         .orderIn = orderIn,
         .qty = qty,
-        .stockText = std::move(t)
-    };
+        .stockText = std::move(t)};
 }
 
 inline std::map<std::string, std::string> specsFromTable(std::string_view html) {
     auto doc = Document::parse("<div>" + std::string(html) + "</div>");
     std::map<std::string, std::string> out;
     auto trs = doc.querySelectorAll("tr");
-    for (const auto& tr : trs) {
+    for (const auto &tr : trs) {
         auto th = tr.querySelector("th");
         auto td = tr.querySelector("td");
         if (th && td) {
@@ -83,12 +81,14 @@ inline std::map<std::string, std::string> specsFromTable(std::string_view html) 
 
 } // namespace tooldepotireland_internal
 
-inline std::optional<Offer> parseTooldepotirelandRow(const slimr::Json& r, std::string_view checkedAt, bool full) {
+inline std::optional<Offer> parseTooldepotirelandRow(const slimr::Json &r, std::string_view checkedAt, bool full) {
     using namespace tooldepotireland_internal;
-    if (!r.is_object()) return std::nullopt;
+    if (!r.is_object())
+        return std::nullopt;
 
-    if (!r.contains("prices") || !r["prices"].is_object()) return std::nullopt;
-    auto& prices = r["prices"];
+    if (!r.contains("prices") || !r["prices"].is_object())
+        return std::nullopt;
+    auto &prices = r["prices"];
 
     int minor = 2;
     if (prices.contains("currency_minor_unit") && prices["currency_minor_unit"].is_number()) {
@@ -97,7 +97,10 @@ inline std::optional<Offer> parseTooldepotirelandRow(const slimr::Json& r, std::
 
     double priceVal = 0.0;
     if (prices.contains("price") && prices["price"].is_string()) {
-        try { priceVal = std::stod(prices["price"].get<std::string>()); } catch (...) {}
+        try {
+            priceVal = std::stod(prices["price"].get<std::string>());
+        } catch (...) {
+        }
     } else if (prices.contains("price") && prices["price"].is_number()) {
         priceVal = prices["price"].get<double>();
     }
@@ -107,11 +110,15 @@ inline std::optional<Offer> parseTooldepotirelandRow(const slimr::Json& r, std::
     if (r.contains("permalink") && r["permalink"].is_string()) {
         permalink = r["permalink"].get<std::string>();
     }
-    if (!std::isfinite(amount) || amount <= 0 || permalink.empty()) return std::nullopt;
+    if (!std::isfinite(amount) || amount <= 0 || permalink.empty())
+        return std::nullopt;
 
     double regularVal = 0.0;
     if (prices.contains("regular_price") && prices["regular_price"].is_string()) {
-        try { regularVal = std::stod(prices["regular_price"].get<std::string>()); } catch (...) {}
+        try {
+            regularVal = std::stod(prices["regular_price"].get<std::string>());
+        } catch (...) {
+        }
     } else if (prices.contains("regular_price") && prices["regular_price"].is_number()) {
         regularVal = prices["regular_price"].get<double>();
     }
@@ -122,7 +129,7 @@ inline std::optional<Offer> parseTooldepotirelandRow(const slimr::Json& r, std::
 
     std::optional<std::string> category;
     if (r.contains("categories") && r["categories"].is_array()) {
-        for (const auto& c : r["categories"].get<slimr::Json::array_t>()) {
+        for (const auto &c : r["categories"].get<slimr::Json::array_t>()) {
             if (c.is_object() && c.contains("name") && c["name"].is_string()) {
                 std::string catName = text(c["name"].get<std::string>());
                 if (!catName.empty() && catName != "Brands") {
@@ -136,7 +143,8 @@ inline std::optional<Offer> parseTooldepotirelandRow(const slimr::Json& r, std::
     std::map<std::string, slimr::Json> details;
     if (r.contains("sku") && r["sku"].is_string()) {
         std::string sku = text(r["sku"].get<std::string>());
-        if (!sku.empty()) details["SKU"] = sku;
+        if (!sku.empty())
+            details["SKU"] = sku;
     }
     if (category) {
         details["Category"] = *category;
@@ -148,7 +156,7 @@ inline std::optional<Offer> parseTooldepotirelandRow(const slimr::Json& r, std::
     if (full) {
         if (r.contains("description") && r["description"].is_string()) {
             auto tableSpecs = specsFromTable(r["description"].get<std::string>());
-            for (const auto& [k, v] : tableSpecs) {
+            for (const auto &[k, v] : tableSpecs) {
                 details[k] = v;
             }
         }
@@ -163,7 +171,10 @@ inline std::optional<Offer> parseTooldepotirelandRow(const slimr::Json& r, std::
 
     double ratingVal = 0.0;
     if (r.contains("average_rating") && r["average_rating"].is_string()) {
-        try { ratingVal = std::stod(r["average_rating"].get<std::string>()); } catch (...) {}
+        try {
+            ratingVal = std::stod(r["average_rating"].get<std::string>());
+        } catch (...) {
+        }
     } else if (r.contains("average_rating") && r["average_rating"].is_number()) {
         ratingVal = r["average_rating"].get<double>();
     }
@@ -199,7 +210,7 @@ inline std::optional<Offer> parseTooldepotirelandRow(const slimr::Json& r, std::
 
     std::optional<std::string> brand;
     if (r.contains("brands") && r["brands"].is_array() && !r["brands"].get<slimr::Json::array_t>().empty()) {
-        auto& b0 = r["brands"].get<slimr::Json::array_t>()[0];
+        auto &b0 = r["brands"].get<slimr::Json::array_t>()[0];
         if (b0.is_object() && b0.contains("name") && b0["name"].is_string()) {
             brand = text(b0["name"].get<std::string>());
         }
@@ -208,7 +219,8 @@ inline std::optional<Offer> parseTooldepotirelandRow(const slimr::Json& r, std::
     std::string currencyCode = "EUR";
     if (prices.contains("currency_code") && prices["currency_code"].is_string()) {
         std::string cc = prices["currency_code"].get<std::string>();
-        if (!cc.empty()) currencyCode = std::move(cc);
+        if (!cc.empty())
+            currencyCode = std::move(cc);
     }
 
     std::optional<double> was;
@@ -232,22 +244,23 @@ inline std::optional<Offer> parseTooldepotirelandRow(const slimr::Json& r, std::
     return o;
 }
 
-inline SearchResult parseTooldepotirelandSearch(const slimr::Json& json, std::string_view checkedAt) {
+inline SearchResult parseTooldepotirelandSearch(const slimr::Json &json, std::string_view checkedAt) {
     std::vector<Offer> offers;
     if (json.is_array()) {
-        for (const auto& r : json.get<slimr::Json::array_t>()) {
+        for (const auto &r : json.get<slimr::Json::array_t>()) {
             auto o = parseTooldepotirelandRow(r, checkedAt, false);
-            if (o) offers.push_back(std::move(*o));
+            if (o)
+                offers.push_back(std::move(*o));
         }
     }
     return SearchResult{.offers = std::move(offers)};
 }
 
-inline std::vector<Pickup> parseTooldepotirelandStock(const slimr::Json& r, const Near& near) {
+inline std::vector<Pickup> parseTooldepotirelandStock(const slimr::Json &r, const Near &near) {
     using namespace tooldepotireland_internal;
     auto stock = stockOf(r);
     std::vector<Pickup> result;
-    for (const auto& s : near.stores) {
+    for (const auto &s : near.stores) {
         double km = std::round(s.km * 10.0) / 10.0;
         std::string status;
         if (!stock.inStock || stock.orderIn) {
@@ -266,30 +279,29 @@ inline std::vector<Pickup> parseTooldepotirelandStock(const slimr::Json& r, cons
             .km = km,
             .status = std::move(status),
             .qty = stock.qty,
-            .readyBy = std::move(readyBy)
-        });
+            .readyBy = std::move(readyBy)});
     }
     return result;
 }
 
 class ToolDepotIrelandAdapter : public SiteAdapter {
-public:
+  public:
     std::string id() const override { return "tooldepotireland"; }
     std::string matchHint() const override {
         return "The site needs few terms and matches product names only: one or two words, "
                "or a model number (\"drill\", \"makita combi\", \"DCD778\"). Extra words or sizes return nothing.";
     }
 
-    SearchResult search(SiteContext& ctx, const SearchQuery& query) override {
+    SearchResult search(SiteContext &ctx, const SearchQuery &query) override {
         int perPage = std::min(query.limit * 2, 40);
         std::string url = tooldepotireland_internal::API +
-            "?search=" + slimr::url_encode(query.query) +
-            "&per_page=" + std::to_string(perPage);
+                          "?search=" + slimr::url_encode(query.query) +
+                          "&per_page=" + std::to_string(perPage);
         slimr::Json json = ctx.fetchJson(url);
         return parseTooldepotirelandSearch(json, "");
     }
 
-    std::vector<Offer> offer(SiteContext& ctx, const OfferRef& ref, const OfferOptions& options) override {
+    std::vector<Offer> offer(SiteContext &ctx, const OfferRef &ref, const OfferOptions &options) override {
         (void)options;
         std::string slug;
         if (ref.url) {
@@ -321,7 +333,7 @@ public:
         return {*o};
     }
 
-    std::vector<Offer> pickup(SiteContext& ctx, const std::vector<Offer>& offers, const Near& near) override {
+    std::vector<Offer> pickup(SiteContext &ctx, const std::vector<Offer> &offers, const Near &near) override {
         std::vector<Offer> out;
         out.reserve(offers.size());
         for (auto offer : offers) {

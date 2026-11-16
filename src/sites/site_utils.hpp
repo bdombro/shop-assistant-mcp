@@ -12,19 +12,19 @@ using namespace shop::core;
 
 template <typename T>
     requires std::is_same_v<std::decay_t<T>, std::optional<std::string>>
-inline std::string cleanText(const T& s) {
+inline std::string cleanText(const T &s) {
     return s ? cleanText(std::string_view(*s)) : "";
 }
 
-inline std::string cleanText(const Node& node) {
+inline std::string cleanText(const Node &node) {
     return node ? cleanText(std::string_view(node.text())) : "";
 }
 
-inline std::string cleanText(const std::optional<Node>& node) {
+inline std::string cleanText(const std::optional<Node> &node) {
     return (node && *node) ? cleanText(std::string_view(node->text())) : "";
 }
 
-inline std::optional<Node> nextElementSibling(const Node& n) {
+inline std::optional<Node> nextElementSibling(const Node &n) {
     auto cur = n.nextSibling();
     while (cur) {
         if (cur->raw() && cur->raw()->type == LXB_DOM_NODE_TYPE_ELEMENT) {
@@ -41,7 +41,7 @@ inline std::string getQueryParam(std::string_view url, std::string_view key) {
 
 template <typename T>
     requires std::is_same_v<std::decay_t<T>, slimr::Json>
-inline std::optional<double> parsePrice(const T& val) {
+inline std::optional<double> parsePrice(const T &val) {
     if (val.is_number()) {
         return val.get_number();
     }
@@ -63,9 +63,11 @@ inline std::optional<double> parsePrice(std::string_view s) {
 
 template <typename T>
     requires std::is_same_v<std::decay_t<T>, slimr::Json>
-inline std::optional<bool> parseStock(const T& val) {
-    if (val.is_boolean()) return val.template get<bool>();
-    if (val.is_string()) return shop::core::parseStock(val.template get<std::string>());
+inline std::optional<bool> parseStock(const T &val) {
+    if (val.is_boolean())
+        return val.template get<bool>();
+    if (val.is_string())
+        return shop::core::parseStock(val.template get<std::string>());
     if (val.is_number()) {
         return val.get_number() > 0.0;
     }
@@ -76,15 +78,18 @@ inline std::optional<bool> parseStock(std::string_view s) {
     return shop::core::parseStock(s);
 }
 
-inline std::string jsonString(const slimr::Json& val, std::string_view def = "") {
-    if (val.is_string()) return val.get<std::string>();
+inline std::string jsonString(const slimr::Json &val, std::string_view def = "") {
+    if (val.is_string())
+        return val.get<std::string>();
     if (val.is_number()) {
-        if (val.is_int64()) return std::to_string(val.get<int64_t>());
+        if (val.is_int64())
+            return std::to_string(val.get<int64_t>());
         std::ostringstream oss;
         oss << val.get_number();
         return oss.str();
     }
-    if (val.is_boolean()) return val.get<bool>() ? "true" : "false";
+    if (val.is_boolean())
+        return val.get<bool>() ? "true" : "false";
     return std::string(def);
 }
 
@@ -92,8 +97,7 @@ inline std::optional<std::string> isoDate(std::string_view label) {
     static const std::regex r1(R"(\bon (\d{1,2}) ([A-Za-z]+) (\d{4}))");
     static const std::regex r2(R"(\bon ([A-Za-z]+) (\d{1,2}), (\d{4}))");
     static const std::vector<std::string> months = {
-        "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"
-    };
+        "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"};
 
     std::string s(label);
     std::smatch m;
@@ -111,9 +115,11 @@ inline std::optional<std::string> isoDate(std::string_view label) {
     }
 
     std::string mlow = monthStr.substr(0, 3);
-    for (char& c : mlow) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (char &c : mlow)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     auto it = std::find(months.begin(), months.end(), mlow);
-    if (it == months.end()) return std::nullopt;
+    if (it == months.end())
+        return std::nullopt;
     int mNum = static_cast<int>(std::distance(months.begin(), it)) + 1;
     int dNum = std::stoi(dayStr);
 

@@ -23,8 +23,7 @@ inline const Delivery DELIVERY{
     .minDays = 1,
     .maxDays = 2,
     .cost = std::nullopt,
-    .source = "site default"
-};
+    .source = "site default"};
 
 inline std::optional<double> price(std::string_view raw) {
     std::string t = text(raw);
@@ -39,8 +38,10 @@ inline std::optional<double> price(std::string_view raw) {
 inline std::string normalizeKey(std::string_view s) {
     std::string out;
     for (char c : s) {
-        if (c >= 'A' && c <= 'Z') out.push_back(static_cast<char>(c + 32));
-        else if (c >= 'a' && c <= 'z') out.push_back(c);
+        if (c >= 'A' && c <= 'Z')
+            out.push_back(static_cast<char>(c + 32));
+        else if (c >= 'a' && c <= 'z')
+            out.push_back(c);
     }
     return out;
 }
@@ -53,13 +54,15 @@ inline SearchResult parsePowercitySearch(std::string_view html, std::string_view
     std::vector<Offer> offers;
 
     auto rows = doc.querySelectorAll("div.group.product");
-    for (const auto& row : rows) {
+    for (const auto &row : rows) {
         auto link = row.querySelector("div.productname a[href^=\"/product/\"]");
-        if (!link) continue;
+        if (!link)
+            continue;
         std::string href = link->attr("href").value_or("");
         static const std::regex idRe(R"(/product/([^/?#]+))");
         std::smatch m;
-        if (!std::regex_search(href, m, idRe)) continue;
+        if (!std::regex_search(href, m, idRe))
+            continue;
         std::string id = m[1].str();
 
         auto priceDiv = row.querySelector("div.productprice > div");
@@ -67,20 +70,23 @@ inline SearchResult parsePowercitySearch(std::string_view html, std::string_view
         if (priceDiv) {
             amount = price(priceDiv->text());
         }
-        if (!amount || *amount <= 0) continue;
+        if (!amount || *amount <= 0)
+            continue;
 
         auto lis = row.querySelectorAll("div.productname.desktop-only li");
         std::vector<std::string> lines;
-        for (const auto& li : lis) {
+        for (const auto &li : lis) {
             std::string l = text(li.text());
-            if (!l.empty()) lines.push_back(std::move(l));
+            if (!l.empty())
+                lines.push_back(std::move(l));
         }
 
         std::string status;
         std::optional<int> units;
         std::string combined;
         for (size_t i = 0; i < lines.size(); ++i) {
-            if (i > 0) combined += " ";
+            if (i > 0)
+                combined += " ";
             combined += lines[i];
         }
 
@@ -93,7 +99,7 @@ inline SearchResult parsePowercitySearch(std::string_view html, std::string_view
 
         std::map<std::string, slimr::Json> details;
         static const std::regex kvRe(R"(^([^:]+?)\s*:\s*(.+)$)");
-        for (const auto& l : lines) {
+        for (const auto &l : lines) {
             std::smatch sm;
             if (std::regex_search(l, sm, statusPrefixRe)) {
                 status = l.substr(sm.length());
@@ -102,14 +108,17 @@ inline SearchResult parsePowercitySearch(std::string_view html, std::string_view
                 std::string k = sm[1].str();
                 std::string v = sm[2].str();
                 std::string kLower = k;
-                for (char& c : kLower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+                for (char &c : kLower)
+                    c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
                 if (kLower != "stock status") {
                     details[k] = v;
                 }
             }
         }
-        if (!status.empty()) details["Stock status"] = status;
-        if (units) details["Units available"] = int64_t(*units);
+        if (!status.empty())
+            details["Stock status"] = status;
+        if (units)
+            details["Units available"] = int64_t(*units);
 
         Offer o;
         o.site = "powercity";
@@ -144,7 +153,7 @@ inline std::optional<Offer> parsePowercityProduct(std::string_view html, std::st
 
     auto allP = doc.querySelectorAll("p");
     auto labelled = [&](std::string_view label) -> std::string {
-        for (const auto& p : allP) {
+        for (const auto &p : allP) {
             std::string t = text(p.text());
             if (t.starts_with(label)) {
                 std::string res = t.substr(label.size());
@@ -170,10 +179,11 @@ inline std::optional<Offer> parsePowercityProduct(std::string_view html, std::st
 
     std::map<std::string, slimr::Json> details;
     std::string warranty = labelled("Warranty:");
-    if (!warranty.empty()) details["Warranty"] = warranty;
+    if (!warranty.empty())
+        details["Warranty"] = warranty;
 
     auto features = doc.querySelectorAll("div.product.feature");
-    for (const auto& f : features) {
+    for (const auto &f : features) {
         auto spans = f.querySelectorAll("span");
         if (spans.size() >= 2) {
             std::string k = text(spans[0].text());
@@ -186,20 +196,23 @@ inline std::optional<Offer> parsePowercityProduct(std::string_view html, std::st
             }
         }
     }
-    if (units) details["Home delivery units"] = int64_t(*units);
+    if (units)
+        details["Home delivery units"] = int64_t(*units);
 
     auto summaryPs = doc.querySelectorAll("#product_information_text p");
     std::string summary;
     static const std::regex ignoreSummary(R"(^Product Infromation)", std::regex::icase);
-    for (const auto& p : summaryPs) {
+    for (const auto &p : summaryPs) {
         std::string t = text(p.text());
         if (!t.empty() && !std::regex_search(t, ignoreSummary)) {
-            if (!summary.empty()) summary += "; ";
+            if (!summary.empty())
+                summary += "; ";
             summary += t;
         }
     }
     if (!summary.empty()) {
-        if (summary.size() > 400) summary = summary.substr(0, 400);
+        if (summary.size() > 400)
+            summary = summary.substr(0, 400);
         details["Summary"] = summary;
     }
 
@@ -229,8 +242,7 @@ inline std::optional<Offer> parsePowercityProduct(std::string_view html, std::st
             .minDays = 1,
             .maxDays = 2,
             .cost = 0.0,
-            .source = "product"
-        };
+            .source = "product"};
     } else {
         o.delivery = DELIVERY;
     }
@@ -239,7 +251,7 @@ inline std::optional<Offer> parsePowercityProduct(std::string_view html, std::st
     return o;
 }
 
-inline std::vector<Pickup> parsePowercityStock(std::string_view html, const Near& near) {
+inline std::vector<Pickup> parsePowercityStock(std::string_view html, const Near &near) {
     using namespace powercity_internal;
     auto doc = Document::parse(html);
 
@@ -250,7 +262,7 @@ inline std::vector<Pickup> parsePowercityStock(std::string_view html, const Near
     std::vector<StockRow> rows;
 
     auto items = doc.querySelectorAll("div.stockitem");
-    for (const auto& el : items) {
+    for (const auto &el : items) {
         auto storeEl = el.querySelector(".stock.store");
         auto qtyEl = el.querySelector(".stock.qty");
         std::string store = storeEl ? text(storeEl->text()) : "";
@@ -265,7 +277,7 @@ inline std::vector<Pickup> parsePowercityStock(std::string_view html, const Near
     std::optional<std::string> readyBy;
     auto h3s = doc.querySelectorAll("h3.clickcollect");
     static const std::regex ccRe(R"(Click & Collect\s*(.+)$)", std::regex::icase);
-    for (const auto& h : h3s) {
+    for (const auto &h : h3s) {
         std::string t = text(h.text());
         std::smatch m;
         if (std::regex_search(t, m, ccRe)) {
@@ -275,10 +287,10 @@ inline std::vector<Pickup> parsePowercityStock(std::string_view html, const Near
     }
 
     std::vector<Pickup> result;
-    for (const auto& s : near.stores) {
+    for (const auto &s : near.stores) {
         std::string sKey = normalizeKey(s.id);
-        const StockRow* matched = nullptr;
-        for (const auto& r : rows) {
+        const StockRow *matched = nullptr;
+        for (const auto &r : rows) {
             std::string rKey = normalizeKey(r.store);
             if (rKey.starts_with(sKey)) {
                 matched = &r;
@@ -292,10 +304,10 @@ inline std::vector<Pickup> parsePowercityStock(std::string_view html, const Near
                 .km = km,
                 .status = "unknown",
                 .qty = std::nullopt,
-                .readyBy = std::nullopt
-            });
+                .readyBy = std::nullopt});
         } else {
-            std::string status = (matched->qty == 0) ? "out" : (matched->qty <= 2) ? "low" : "in stock";
+            std::string status = (matched->qty == 0) ? "out" : (matched->qty <= 2) ? "low"
+                                                                                   : "in stock";
             std::optional<std::string> ready;
             if (matched->qty > 0 && readyBy) {
                 ready = readyBy;
@@ -305,22 +317,21 @@ inline std::vector<Pickup> parsePowercityStock(std::string_view html, const Near
                 .km = km,
                 .status = std::move(status),
                 .qty = matched->qty,
-                .readyBy = std::move(ready)
-            });
+                .readyBy = std::move(ready)});
         }
     }
     return result;
 }
 
 class PowercityAdapter : public SiteAdapter {
-public:
+  public:
     std::string id() const override { return "powercity"; }
     std::string matchHint() const override {
         return "Keyword search that often jumps to a whole category (\"vacuum\" lists every vacuum). "
                "Use the shop's own words: product type or brand plus model (\"dyson v8\", \"air fryer\").";
     }
 
-    SearchResult search(SiteContext& ctx, const SearchQuery& query) override {
+    SearchResult search(SiteContext &ctx, const SearchQuery &query) override {
         std::string url = powercity_internal::BASE + "groups/groups/search?search=" + slimr::url_encode(query.query);
         FetchInit init;
         init.document = true;
@@ -328,7 +339,7 @@ public:
         return parsePowercitySearch(html, "");
     }
 
-    std::vector<Offer> offer(SiteContext& ctx, const OfferRef& ref, const OfferOptions& options) override {
+    std::vector<Offer> offer(SiteContext &ctx, const OfferRef &ref, const OfferOptions &options) override {
         (void)options;
         std::string id = ref.id.value_or("");
         if (id.empty() && ref.url) {
@@ -349,7 +360,7 @@ public:
         return {*o};
     }
 
-    std::vector<Offer> pickup(SiteContext& ctx, const std::vector<Offer>& offers, const Near& near) override {
+    std::vector<Offer> pickup(SiteContext &ctx, const std::vector<Offer> &offers, const Near &near) override {
         std::vector<Offer> out;
         out.reserve(offers.size());
         for (auto offer : offers) {

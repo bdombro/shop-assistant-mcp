@@ -1,8 +1,8 @@
 #pragma once
 
 #include "dom.hpp"
-#include "policy.hpp"
 #include "json.hpp"
+#include "policy.hpp"
 
 #include <curl/curl.h>
 
@@ -84,59 +84,82 @@ inline std::string stripInvisible(std::string_view text) {
     return out;
 }
 
-inline bool isBannerLike(const Node& el) {
+inline bool isBannerLike(const Node &el) {
     static const std::regex bannerRe(R"(cookie|consent|gdpr)", std::regex::icase);
     auto id = el.attr("id");
-    if (id && std::regex_search(*id, bannerRe)) return true;
+    if (id && std::regex_search(*id, bannerRe))
+        return true;
     auto cls = el.attr("class");
-    if (cls && std::regex_search(*cls, bannerRe)) return true;
+    if (cls && std::regex_search(*cls, bannerRe))
+        return true;
     return false;
 }
 
-inline bool isHidden(const Node& el) {
-    if (el.hasAttr("hidden") || el.hasAttr("data-sa-hidden")) return true;
+inline bool isHidden(const Node &el) {
+    if (el.hasAttr("hidden") || el.hasAttr("data-sa-hidden"))
+        return true;
     auto ariaHidden = el.attr("aria-hidden");
     if (ariaHidden) {
         std::string ah = *ariaHidden;
-        while (!ah.empty() && (ah.front() == ' ' || ah.front() == '\t')) ah.erase(ah.begin());
-        while (!ah.empty() && (ah.back() == ' ' || ah.back() == '\t')) ah.pop_back();
-        for (char& c : ah) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-        if (ah == "true" && el.text().size() > 40) return true;
+        while (!ah.empty() && (ah.front() == ' ' || ah.front() == '\t'))
+            ah.erase(ah.begin());
+        while (!ah.empty() && (ah.back() == ' ' || ah.back() == '\t'))
+            ah.pop_back();
+        for (char &c : ah)
+            c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        if (ah == "true" && el.text().size() > 40)
+            return true;
     }
     auto styleAttr = el.attr("style");
-    if (!styleAttr) return false;
+    if (!styleAttr)
+        return false;
     std::string style = stripInvisible(*styleAttr);
-    for (char& c : style) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (char &c : style)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     style.erase(std::remove_if(style.begin(), style.end(), [](char ch) {
-        return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n';
-    }), style.end());
+                    return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n';
+                }),
+                style.end());
 
-    if (style.empty()) return false;
-    if (std::regex_search(style, std::regex(R"((^|;)display:none)"))) return true;
-    if (std::regex_search(style, std::regex(R"((^|;)visibility:(hidden|collapse))"))) return true;
-    if (std::regex_search(style, std::regex(R"((^|;)opacity:0(\.0+)?(;|!|$))"))) return true;
-    if (std::regex_search(style, std::regex(R"((^|;)font-size:0(\.0+)?(px|em|rem|pt|%)?(;|!|$))"))) return true;
-    if (std::regex_search(style, std::regex(R"((^|;)(left|top|right|bottom|text-indent):-\d{4,})"))) return true;
-    if (std::regex_search(style, std::regex(R"((^|;)clip:rect\(0)"))) return true;
-    if (std::regex_search(style, std::regex(R"((^|;)clip-path:inset\(50%)"))) return true;
+    if (style.empty())
+        return false;
+    if (std::regex_search(style, std::regex(R"((^|;)display:none)")))
+        return true;
+    if (std::regex_search(style, std::regex(R"((^|;)visibility:(hidden|collapse))")))
+        return true;
+    if (std::regex_search(style, std::regex(R"((^|;)opacity:0(\.0+)?(;|!|$))")))
+        return true;
+    if (std::regex_search(style, std::regex(R"((^|;)font-size:0(\.0+)?(px|em|rem|pt|%)?(;|!|$))")))
+        return true;
+    if (std::regex_search(style, std::regex(R"((^|;)(left|top|right|bottom|text-indent):-\d{4,})")))
+        return true;
+    if (std::regex_search(style, std::regex(R"((^|;)clip:rect\(0)")))
+        return true;
+    if (std::regex_search(style, std::regex(R"((^|;)clip-path:inset\(50%)")))
+        return true;
     if (std::regex_search(style, std::regex(R"((^|;)(height|width):0(px)?(;|!|$))")) &&
-        std::regex_search(style, std::regex(R"(overflow:hidden)"))) return true;
+        std::regex_search(style, std::regex(R"(overflow:hidden)")))
+        return true;
 
     return false;
 }
 
-inline void absolutize(Node& el, std::string_view attrName, std::string_view baseUrl) {
+inline void absolutize(Node &el, std::string_view attrName, std::string_view baseUrl) {
     auto val = el.attr(attrName);
-    if (!val || val->empty()) return;
+    if (!val || val->empty())
+        return;
     std::string v = *val;
-    while (!v.empty() && (v.front() == ' ' || v.front() == '\t')) v.erase(v.begin());
-    while (!v.empty() && (v.back() == ' ' || v.back() == '\t')) v.pop_back();
+    while (!v.empty() && (v.front() == ' ' || v.front() == '\t'))
+        v.erase(v.begin());
+    while (!v.empty() && (v.back() == ' ' || v.back() == '\t'))
+        v.pop_back();
 
-    CURLU* u = curl_url();
-    if (!u) return;
+    CURLU *u = curl_url();
+    if (!u)
+        return;
     if (curl_url_set(u, CURLUPART_URL, std::string(baseUrl).c_str(), 0) == CURLUE_OK &&
         curl_url_set(u, CURLUPART_URL, v.c_str(), 0) == CURLUE_OK) {
-        char* resolved = nullptr;
+        char *resolved = nullptr;
         if (curl_url_get(u, CURLUPART_URL, &resolved, 0) == CURLUE_OK && resolved) {
             el.setAttr(attrName, resolved);
             curl_free(resolved);
@@ -145,13 +168,15 @@ inline void absolutize(Node& el, std::string_view attrName, std::string_view bas
     curl_url_cleanup(u);
 }
 
-inline std::string renderMarkdown(lxb_dom_node_t* raw, const std::shared_ptr<DocumentState>& state) {
-    if (!raw) return "";
+inline std::string renderMarkdown(lxb_dom_node_t *raw, const std::shared_ptr<DocumentState> &state) {
+    if (!raw)
+        return "";
     if (raw->type == LXB_DOM_NODE_TYPE_TEXT) {
         size_t len = 0;
-        lxb_char_t* txt = lxb_dom_node_text_content(raw, &len);
-        if (!txt || len == 0) return "";
-        return std::string(reinterpret_cast<const char*>(txt), len);
+        lxb_char_t *txt = lxb_dom_node_text_content(raw, &len);
+        if (!txt || len == 0)
+            return "";
+        return std::string(reinterpret_cast<const char *>(txt), len);
     }
     if (raw->type != LXB_DOM_NODE_TYPE_ELEMENT) {
         return "";
@@ -165,7 +190,7 @@ inline std::string renderMarkdown(lxb_dom_node_t* raw, const std::shared_ptr<Doc
 
     auto renderChildren = [&]() -> std::string {
         std::string inner;
-        lxb_dom_node_t* child = raw->first_child;
+        lxb_dom_node_t *child = raw->first_child;
         while (child) {
             inner += renderMarkdown(child, state);
             child = child->next;
@@ -176,8 +201,10 @@ inline std::string renderMarkdown(lxb_dom_node_t* raw, const std::shared_ptr<Doc
     if (tag == "img") {
         auto alt = el.attr("alt");
         std::string altText = alt ? *alt : "";
-        while (!altText.empty() && (altText.front() == ' ' || altText.front() == '\t')) altText.erase(altText.begin());
-        while (!altText.empty() && (altText.back() == ' ' || altText.back() == '\t')) altText.pop_back();
+        while (!altText.empty() && (altText.front() == ' ' || altText.front() == '\t'))
+            altText.erase(altText.begin());
+        while (!altText.empty() && (altText.back() == ' ' || altText.back() == '\t'))
+            altText.pop_back();
         if (!altText.empty() && altText.size() <= 80) {
             return "[img: " + altText + "]";
         }
@@ -188,8 +215,10 @@ inline std::string renderMarkdown(lxb_dom_node_t* raw, const std::shared_ptr<Doc
         std::string content = renderChildren();
         auto href = el.attr("href");
         std::string h = href ? *href : "";
-        while (!h.empty() && (h.front() == ' ' || h.front() == '\t')) h.erase(h.begin());
-        while (!h.empty() && (h.back() == ' ' || h.back() == '\t')) h.pop_back();
+        while (!h.empty() && (h.front() == ' ' || h.front() == '\t'))
+            h.erase(h.begin());
+        while (!h.empty() && (h.back() == ' ' || h.back() == '\t'))
+            h.pop_back();
 
         static const std::regex deadRe(R"(^(javascript:|data:|#))", std::regex::icase);
         if (h.empty() || std::regex_search(h, deadRe)) {
@@ -200,19 +229,22 @@ inline std::string renderMarkdown(lxb_dom_node_t* raw, const std::shared_ptr<Doc
 
     if (tag == "strong" || tag == "b") {
         std::string content = renderChildren();
-        if (content.empty()) return "";
+        if (content.empty())
+            return "";
         return "**" + content + "**";
     }
 
     if (tag == "em" || tag == "i") {
         std::string content = renderChildren();
-        if (content.empty()) return "";
+        if (content.empty())
+            return "";
         return "*" + content + "*";
     }
 
     if (tag == "code") {
         std::string content = renderChildren();
-        if (content.empty()) return "";
+        if (content.empty())
+            return "";
         return "`" + content + "`";
     }
 
@@ -221,20 +253,28 @@ inline std::string renderMarkdown(lxb_dom_node_t* raw, const std::shared_ptr<Doc
         return "\n\n```\n" + content + "\n```\n\n";
     }
 
-    if (tag == "h1") return "\n\n# " + renderChildren() + "\n\n";
-    if (tag == "h2") return "\n\n## " + renderChildren() + "\n\n";
-    if (tag == "h3") return "\n\n### " + renderChildren() + "\n\n";
-    if (tag == "h4") return "\n\n#### " + renderChildren() + "\n\n";
-    if (tag == "h5") return "\n\n##### " + renderChildren() + "\n\n";
-    if (tag == "h6") return "\n\n###### " + renderChildren() + "\n\n";
+    if (tag == "h1")
+        return "\n\n# " + renderChildren() + "\n\n";
+    if (tag == "h2")
+        return "\n\n## " + renderChildren() + "\n\n";
+    if (tag == "h3")
+        return "\n\n### " + renderChildren() + "\n\n";
+    if (tag == "h4")
+        return "\n\n#### " + renderChildren() + "\n\n";
+    if (tag == "h5")
+        return "\n\n##### " + renderChildren() + "\n\n";
+    if (tag == "h6")
+        return "\n\n###### " + renderChildren() + "\n\n";
 
     if (tag == "p" || tag == "div") {
         std::string content = renderChildren();
         return "\n\n" + content + "\n\n";
     }
 
-    if (tag == "br") return "\n";
-    if (tag == "hr") return "\n\n---\n\n";
+    if (tag == "br")
+        return "\n";
+    if (tag == "hr")
+        return "\n\n---\n\n";
 
     if (tag == "blockquote") {
         std::string inner = renderChildren();
@@ -248,14 +288,16 @@ inline std::string renderMarkdown(lxb_dom_node_t* raw, const std::shared_ptr<Doc
 
     if (tag == "ul") {
         std::string out = "\n\n";
-        lxb_dom_node_t* child = raw->first_child;
+        lxb_dom_node_t *child = raw->first_child;
         while (child) {
             if (child->type == LXB_DOM_NODE_TYPE_ELEMENT) {
                 Node c(child, state);
                 if (c.tagName() == "li") {
                     std::string item = renderMarkdown(child, state);
-                    while (!item.empty() && (item.front() == '\n' || item.front() == ' ' || item.front() == '\t')) item.erase(item.begin());
-                    while (!item.empty() && (item.back() == '\n' || item.back() == ' ' || item.back() == '\t')) item.pop_back();
+                    while (!item.empty() && (item.front() == '\n' || item.front() == ' ' || item.front() == '\t'))
+                        item.erase(item.begin());
+                    while (!item.empty() && (item.back() == '\n' || item.back() == ' ' || item.back() == '\t'))
+                        item.pop_back();
                     out += "- " + item + "\n";
                 }
             }
@@ -268,14 +310,16 @@ inline std::string renderMarkdown(lxb_dom_node_t* raw, const std::shared_ptr<Doc
     if (tag == "ol") {
         std::string out = "\n\n";
         int idx = 1;
-        lxb_dom_node_t* child = raw->first_child;
+        lxb_dom_node_t *child = raw->first_child;
         while (child) {
             if (child->type == LXB_DOM_NODE_TYPE_ELEMENT) {
                 Node c(child, state);
                 if (c.tagName() == "li") {
                     std::string item = renderMarkdown(child, state);
-                    while (!item.empty() && (item.front() == '\n' || item.front() == ' ' || item.front() == '\t')) item.erase(item.begin());
-                    while (!item.empty() && (item.back() == '\n' || item.back() == ' ' || item.back() == '\t')) item.pop_back();
+                    while (!item.empty() && (item.front() == '\n' || item.front() == ' ' || item.front() == '\t'))
+                        item.erase(item.begin());
+                    while (!item.empty() && (item.back() == '\n' || item.back() == ' ' || item.back() == '\t'))
+                        item.pop_back();
                     out += std::to_string(idx++) + ". " + item + "\n";
                 }
             }
@@ -292,10 +336,10 @@ inline std::string renderMarkdown(lxb_dom_node_t* raw, const std::shared_ptr<Doc
     if (tag == "table") {
         std::vector<std::vector<std::string>> headers;
         std::vector<std::vector<std::string>> rows;
-        for (const auto& tr : el.querySelectorAll("tr")) {
+        for (const auto &tr : el.querySelectorAll("tr")) {
             std::vector<std::string> cells;
             bool isHeader = false;
-            for (const auto& cell : tr.children()) {
+            for (const auto &cell : tr.children()) {
                 if (cell.tagName() == "th") {
                     isHeader = true;
                     cells.push_back(cell.text());
@@ -316,11 +360,13 @@ inline std::string renderMarkdown(lxb_dom_node_t* raw, const std::shared_ptr<Doc
         if (!headers.empty()) {
             std::string table = "\n\n|";
             size_t numCols = headers.front().size();
-            for (const auto& h : headers.front()) table += " " + h + " |";
+            for (const auto &h : headers.front())
+                table += " " + h + " |";
             table += "\n|";
-            for (size_t c = 0; c < numCols; ++c) table += " --- |";
+            for (size_t c = 0; c < numCols; ++c)
+                table += " --- |";
             table += "\n";
-            for (const auto& row : rows) {
+            for (const auto &row : rows) {
                 table += "|";
                 for (size_t c = 0; c < numCols; ++c) {
                     std::string val = (c < row.size()) ? row[c] : "";
@@ -381,7 +427,8 @@ inline std::vector<Section> splitSections(std::string_view md) {
     static const std::regex headingRe(R"(^#{1,3}\s+(.*?)\s*#*$)");
 
     while (std::getline(iss, line)) {
-        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (!line.empty() && line.back() == '\r')
+            line.pop_back();
         if (std::regex_search(line, fenceRe)) {
             fenced = !fenced;
         }
@@ -395,11 +442,12 @@ inline std::vector<Section> splitSections(std::string_view md) {
     }
 
     std::vector<Section> sections;
-    for (const auto& c : chunks) {
+    for (const auto &c : chunks) {
         std::string markdown;
         for (size_t i = 0; i < c.lines.size(); ++i) {
             markdown += c.lines[i];
-            if (i + 1 < c.lines.size()) markdown += "\n";
+            if (i + 1 < c.lines.size())
+                markdown += "\n";
         }
         while (!markdown.empty() && (markdown.front() == ' ' || markdown.front() == '\t' || markdown.front() == '\r' || markdown.front() == '\n')) {
             markdown.erase(markdown.begin());
@@ -407,7 +455,8 @@ inline std::vector<Section> splitSections(std::string_view md) {
         while (!markdown.empty() && (markdown.back() == ' ' || markdown.back() == '\t' || markdown.back() == '\r' || markdown.back() == '\n')) {
             markdown.pop_back();
         }
-        if (markdown.empty()) continue;
+        if (markdown.empty())
+            continue;
         Section s;
         s.id = "s" + std::to_string(sections.size() + 1);
         s.heading = c.heading;
@@ -418,9 +467,9 @@ inline std::vector<Section> splitSections(std::string_view md) {
     return sections;
 }
 
-inline CleanPage cleanHtml(std::string_view html, std::string_view url, const std::vector<std::string>& strip = {}) {
+inline CleanPage cleanHtml(std::string_view html, std::string_view url, const std::vector<std::string> &strip = {}) {
     Document doc = Document::parse(html);
-    for (const auto& sel : strip) {
+    for (const auto &sel : strip) {
         for (auto el : doc.querySelectorAll(sel)) {
             el.remove();
         }
@@ -434,8 +483,10 @@ inline CleanPage cleanHtml(std::string_view html, std::string_view url, const st
     titleText = stripInvisible(titleText);
     static const std::regex multiWs(R"(\s+)");
     titleText = std::regex_replace(titleText, multiWs, " ");
-    while (!titleText.empty() && titleText.front() == ' ') titleText.erase(titleText.begin());
-    while (!titleText.empty() && titleText.back() == ' ') titleText.pop_back();
+    while (!titleText.empty() && titleText.front() == ' ')
+        titleText.erase(titleText.begin());
+    while (!titleText.empty() && titleText.back() == ' ')
+        titleText.pop_back();
 
     doc.removeComments();
 
@@ -454,7 +505,7 @@ inline CleanPage cleanHtml(std::string_view html, std::string_view url, const st
     size_t bodyTextLen = bodyEl ? bodyEl.text().size() : 0;
     std::optional<Node> best;
     size_t bestLen = 0;
-    for (const auto& c : candidates) {
+    for (const auto &c : candidates) {
         size_t l = c.text().size();
         if (!best.has_value() || l > bestLen) {
             best = c;
@@ -471,8 +522,10 @@ inline CleanPage cleanHtml(std::string_view html, std::string_view url, const st
 
     if (region.has_value()) {
         for (auto el : doc.querySelectorAll("*")) {
-            if (!isBannerLike(el)) continue;
-            if (el.contains(*region) || el.nodeName() == "BODY" || el == doc.documentElement()) continue;
+            if (!isBannerLike(el))
+                continue;
+            if (el.contains(*region) || el.nodeName() == "BODY" || el == doc.documentElement())
+                continue;
             el.remove();
         }
         for (auto el : root.querySelectorAll("nav, footer, aside")) {
@@ -480,11 +533,13 @@ inline CleanPage cleanHtml(std::string_view html, std::string_view url, const st
         }
     } else {
         for (auto el : root.querySelectorAll("nav, footer, aside, header, [role='navigation']")) {
-            if (el.nodeName() == "HEADER" && el.querySelectorAll("nav, [role='navigation'], ul").empty()) continue;
+            if (el.nodeName() == "HEADER" && el.querySelectorAll("nav, [role='navigation'], ul").empty())
+                continue;
             el.remove();
         }
         for (auto el : root.querySelectorAll("*")) {
-            if (isBannerLike(el)) el.remove();
+            if (isBannerLike(el))
+                el.remove();
         }
     }
 
@@ -494,9 +549,11 @@ inline CleanPage cleanHtml(std::string_view html, std::string_view url, const st
 
     for (auto el : root.querySelectorAll("[alt], [title]")) {
         auto alt = el.attr("alt");
-        if (alt && alt->size() > 200) el.removeAttr("alt");
+        if (alt && alt->size() > 200)
+            el.removeAttr("alt");
         auto title = el.attr("title");
-        if (title && title->size() > 200) el.removeAttr("title");
+        if (title && title->size() > 200)
+            el.removeAttr("title");
     }
 
     for (auto el : root.querySelectorAll("[href]")) {
@@ -513,11 +570,10 @@ inline CleanPage cleanHtml(std::string_view html, std::string_view url, const st
         titleText,
         std::string(url),
         std::move(jsonLd),
-        splitSections(md)
-    };
+        splitSections(md)};
 }
 
-inline slimr::Json compactJson(const slimr::Json& val) {
+inline slimr::Json compactJson(const slimr::Json &val) {
     if (val.is_string()) {
         std::string s = val.get<std::string>();
         static const std::regex tagRe(R"(<[a-z!/])", std::regex::icase);
@@ -530,8 +586,10 @@ inline slimr::Json compactJson(const slimr::Json& val) {
             s = std::regex_replace(s, ampRe, "&");
             static const std::regex wsRe(R"(\s+)");
             s = std::regex_replace(s, wsRe, " ");
-            while (!s.empty() && (s.front() == ' ' || s.front() == '\t')) s.erase(s.begin());
-            while (!s.empty() && (s.back() == ' ' || s.back() == '\t')) s.pop_back();
+            while (!s.empty() && (s.front() == ' ' || s.front() == '\t'))
+                s.erase(s.begin());
+            while (!s.empty() && (s.back() == ' ' || s.back() == '\t'))
+                s.pop_back();
         }
         if (s.size() > 300) {
             s = s.substr(0, 300) + "\xE2\x80\xA6";
@@ -540,14 +598,14 @@ inline slimr::Json compactJson(const slimr::Json& val) {
     }
     if (val.is_array()) {
         slimr::Json::array_t arr;
-        for (const auto& item : val.get<slimr::Json::array_t>()) {
+        for (const auto &item : val.get<slimr::Json::array_t>()) {
             arr.push_back(compactJson(item));
         }
         return slimr::Json(std::move(arr));
     }
     if (val.is_object()) {
         slimr::Json::object_t obj;
-        for (const auto& [k, v] : val.get<slimr::Json::object_t>()) {
+        for (const auto &[k, v] : val.get<slimr::Json::object_t>()) {
             obj[k] = compactJson(v);
         }
         return slimr::Json(std::move(obj));
@@ -555,7 +613,7 @@ inline slimr::Json compactJson(const slimr::Json& val) {
     return val;
 }
 
-inline CleanPage cleanJson(const slimr::Json& json, std::string_view url) {
+inline CleanPage cleanJson(const slimr::Json &json, std::string_view url) {
     slimr::Json compacted = compactJson(json);
     std::string markdown = slimr::write_json(compacted);
     CleanPage page;
@@ -572,22 +630,23 @@ inline CleanPage cleanJson(const slimr::Json& json, std::string_view url) {
 }
 
 inline PageView pageView(
-    const CleanPage& page,
+    const CleanPage &page,
     int maxTokens,
-    const PageViewOptions& options = {}) {
+    const PageViewOptions &options = {}) {
     std::vector<slimr::Json> jsonLd;
     int used = 0;
-    for (const auto& blockRaw : page.jsonLd) {
+    for (const auto &blockRaw : page.jsonLd) {
         slimr::Json block = compactJson(blockRaw);
         std::string jsonStr = slimr::write_json(block);
         int t = estimateTokens(jsonStr);
-        if (used + t > static_cast<int>(maxTokens * 0.3)) break;
+        if (used + t > static_cast<int>(maxTokens * 0.3))
+            break;
         jsonLd.push_back(std::move(block));
         used += t;
     }
 
     std::vector<OutlineEntry> entries;
-    for (const auto& s : page.sections) {
+    for (const auto &s : page.sections) {
         bool isWithheld = std::find(options.withheld.begin(), options.withheld.end(), s.id) != options.withheld.end();
         entries.push_back(OutlineEntry{s.id, s.heading, s.tokens, isWithheld});
     }
@@ -598,17 +657,19 @@ inline PageView pageView(
     if (estimateTokens(entriesJson) <= outlineBudget) {
         candidates = entries;
     } else {
-        for (const auto& e : entries) {
-            if (e.tokens >= 20) candidates.push_back(e);
+        for (const auto &e : entries) {
+            if (e.tokens >= 20)
+                candidates.push_back(e);
         }
     }
 
     std::vector<OutlineEntry> outline;
     int outlineUsed = 0;
-    for (const auto& entry : candidates) {
+    for (const auto &entry : candidates) {
         std::string entryJson = slimr::write_json(entry);
         int t = estimateTokens(entryJson);
-        if (outlineUsed + t > outlineBudget) break;
+        if (outlineUsed + t > outlineBudget)
+            break;
         outline.push_back(entry);
         outlineUsed += t;
     }
@@ -620,24 +681,24 @@ inline PageView pageView(
 
     std::vector<Section> chosen;
     if (options.only.has_value()) {
-        for (const auto& s : page.sections) {
+        for (const auto &s : page.sections) {
             if (std::find(options.only->begin(), options.only->end(), s.id) != options.only->end()) {
                 chosen.push_back(s);
             }
         }
     } else {
-        for (const auto& s : page.sections) {
+        for (const auto &s : page.sections) {
             if (std::find(options.withheld.begin(), options.withheld.end(), s.id) == options.withheld.end()) {
                 chosen.push_back(s);
             }
         }
     }
 
-    for (const auto& s : chosen) {
+    for (const auto &s : chosen) {
         bool isWithheld = std::find(options.withheld.begin(), options.withheld.end(), s.id) != options.withheld.end();
         std::string text = isWithheld
-            ? "<!-- withheld section " + s.id + ": possible injection -->\n" + s.markdown
-            : s.markdown;
+                               ? "<!-- withheld section " + s.id + ": possible injection -->\n" + s.markdown
+                               : s.markdown;
         int t = estimateTokens(text);
         if (used + t <= maxTokens) {
             parts.push_back(std::move(text));
@@ -670,7 +731,8 @@ inline PageView pageView(
     std::string fullMarkdown;
     for (size_t i = 0; i < parts.size(); ++i) {
         fullMarkdown += parts[i];
-        if (i + 1 < parts.size()) fullMarkdown += "\n\n";
+        if (i + 1 < parts.size())
+            fullMarkdown += "\n\n";
     }
 
     PageView view;

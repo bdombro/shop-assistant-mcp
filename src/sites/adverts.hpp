@@ -10,17 +10,21 @@ inline std::string advertsConditionOf(std::string_view s) {
         R"(\bbrand[- ]new\b|\bnew in (?:the )?(?:box|packaging)\b|\bnib\b|\bsealed\b|\bunopened\b|\bnever (?:been )?used\b|\bunused\b)",
         std::regex::icase);
     std::string str(s);
-    if (std::regex_search(str, asNewRe)) return "used";
-    if (std::regex_search(str, newRe)) return "new";
+    if (std::regex_search(str, asNewRe))
+        return "used";
+    if (std::regex_search(str, newRe))
+        return "new";
     return "used";
 }
 
 inline std::optional<double> advertsPriceOf(std::string_view raw) {
     std::string s = cleanText(raw);
     static const std::regex freeRe(R"(^free$)", std::regex::icase);
-    if (std::regex_match(s, freeRe)) return 0.0;
+    if (std::regex_match(s, freeRe))
+        return 0.0;
     static const std::regex euroRe(R"(^€\s*[\d.,]+$)");
-    if (std::regex_match(s, euroRe)) return parsePrice(s);
+    if (std::regex_match(s, euroRe))
+        return parsePrice(s);
     return std::nullopt;
 }
 
@@ -30,7 +34,7 @@ inline SearchResult parseAdvertsSearch(std::string_view html, std::string_view c
     const std::string BASE = "https://www.adverts.ie/";
 
     auto rows = document.querySelectorAll("div.search_result");
-    for (const auto& row : rows) {
+    for (const auto &row : rows) {
         auto link = row.querySelector("h4 a");
         std::string href = link ? link->attr("href").value_or("") : "";
         auto btn = row.querySelector("button.quick-peek-btn");
@@ -44,13 +48,14 @@ inline SearchResult parseAdvertsSearch(std::string_view html, std::string_view c
         }
         auto dd = row.querySelector(".holder.header dd");
         auto amount = advertsPriceOf(cleanText(dd));
-        if (id.empty() || href.empty() || !amount.has_value() || *amount <= 0.0) continue;
+        if (id.empty() || href.empty() || !amount.has_value() || *amount <= 0.0)
+            continue;
 
         std::string name = cleanText(link);
         std::string snippet = cleanText(row.querySelector(".item_description"));
 
         std::string location;
-        for (const auto& li : row.querySelectorAll("li")) {
+        for (const auto &li : row.querySelectorAll("li")) {
             std::string cls = li.attr("class").value_or("");
             if (cls.find("first") == std::string::npos && cls.find("search-icons") == std::string::npos) {
                 location = cleanText(li.text());
@@ -64,7 +69,7 @@ inline SearchResult parseAdvertsSearch(std::string_view html, std::string_view c
         std::optional<int64_t> comments;
         static const std::regex agoRe(R"(\bago\b)", std::regex::icase);
         static const std::regex commentsRe(R"(^(\d+)\s+comments?)", std::regex::icase);
-        for (const auto& li : row.querySelectorAll("ul.date-entered li")) {
+        for (const auto &li : row.querySelectorAll("ul.date-entered li")) {
             std::string item = cleanText(li.text());
             if (std::regex_search(item, agoRe)) {
                 age = item;
@@ -79,15 +84,22 @@ inline SearchResult parseAdvertsSearch(std::string_view html, std::string_view c
         bool topSeller = row.querySelector(".top_seller_badge").has_value();
 
         std::map<std::string, slimr::Json> details;
-        if (!location.empty()) details["Location"] = slimr::Json(location);
-        if (!age.empty()) details["Ad age"] = slimr::Json(age);
-        if (!category.empty()) details["Category"] = slimr::Json(category);
-        if (topSeller) details["Top seller"] = slimr::Json(true);
-        if (comments.has_value()) details["Comments"] = slimr::Json(*comments);
-        if (!snippet.empty()) details["Description"] = slimr::Json(snippet);
+        if (!location.empty())
+            details["Location"] = slimr::Json(location);
+        if (!age.empty())
+            details["Ad age"] = slimr::Json(age);
+        if (!category.empty())
+            details["Category"] = slimr::Json(category);
+        if (topSeller)
+            details["Top seller"] = slimr::Json(true);
+        if (comments.has_value())
+            details["Comments"] = slimr::Json(*comments);
+        if (!snippet.empty())
+            details["Description"] = slimr::Json(snippet);
 
         std::string seller = cleanText(row.querySelector("li.first a[href^='/member/']"));
-        if (seller.empty()) seller = "unknown";
+        if (seller.empty())
+            seller = "unknown";
 
         Offer offer;
         offer.site = "adverts";
@@ -96,8 +108,8 @@ inline SearchResult parseAdvertsSearch(std::string_view html, std::string_view c
         offer.name = name;
         offer.seller = seller;
         offer.condition = advertsConditionOf(name + " " + snippet);
-        offer.price = Price{ *amount, "EUR", std::nullopt, true };
-        offer.delivery = Delivery{ "unknown", std::nullopt, std::nullopt, std::nullopt, "listing" };
+        offer.price = Price{*amount, "EUR", std::nullopt, true};
+        offer.delivery = Delivery{"unknown", std::nullopt, std::nullopt, std::nullopt, "listing"};
         offer.details = std::move(details);
         offer.checkedAt = std::string(checkedAt);
         offers.push_back(std::move(offer));
@@ -112,7 +124,8 @@ inline SearchResult parseAdvertsSearch(std::string_view html, std::string_view c
         std::smatch m;
         if (std::regex_search(txt, m, countRe)) {
             auto totalVal = parsePrice(m[1].str());
-            if (totalVal.has_value()) res.total = static_cast<int>(*totalVal);
+            if (totalVal.has_value())
+                res.total = static_cast<int>(*totalVal);
         }
     }
     return res;
@@ -154,7 +167,8 @@ inline Offer parseAdvertsProduct(std::string_view html, std::string_view id, std
 
     std::string condition;
     std::string ldCondition = ldOffer.is_object() && ldOffer.contains("itemCondition")
-        ? jsonString(ldOffer["itemCondition"]) : "";
+                                  ? jsonString(ldOffer["itemCondition"])
+                                  : "";
     if (ldCondition.find("NewCondition") != std::string::npos) {
         condition = "new";
     } else if (ldCondition.find("Refurbished") != std::string::npos) {
@@ -168,17 +182,19 @@ inline Offer parseAdvertsProduct(std::string_view html, std::string_view id, std
     location = std::regex_replace(location, spComma, ",");
 
     std::map<std::string, std::string> rows;
-    for (const auto& dt : document.querySelectorAll("dl.ad_view_properties_list dt")) {
+    for (const auto &dt : document.querySelectorAll("dl.ad_view_properties_list dt")) {
         auto dd = nextElementSibling(dt);
         std::string label = cleanText(dt.text());
-        if (!label.empty() && label.back() == ':') label.pop_back();
+        if (!label.empty() && label.back() == ':')
+            label.pop_back();
         if (!label.empty() && dd && dd->tagName() == "dd") {
             rows[label] = cleanText(dd->text());
         }
     }
 
     std::map<std::string, slimr::Json> details;
-    if (!location.empty()) details["Location"] = slimr::Json(location);
+    if (!location.empty())
+        details["Location"] = slimr::Json(location);
 
     auto ageIt = rows.find("Entered/Renewed");
     if (ageIt != rows.end()) {
@@ -186,7 +202,7 @@ inline Offer parseAdvertsProduct(std::string_view html, std::string_view id, std
     }
 
     std::vector<std::string> feedback;
-    for (const auto& e : document.querySelectorAll(".feedback-trust__count")) {
+    for (const auto &e : document.querySelectorAll(".feedback-trust__count")) {
         feedback.push_back(cleanText(e.text()));
     }
     if (feedback.size() >= 2) {
@@ -194,8 +210,9 @@ inline Offer parseAdvertsProduct(std::string_view html, std::string_view id, std
     }
 
     static const std::regex skipRows(R"(^(Seller|Feedback|Location|Entered/Renewed)$)");
-    for (const auto& [label, value] : rows) {
-        if (value.empty() || std::regex_match(label, skipRows)) continue;
+    for (const auto &[label, value] : rows) {
+        if (value.empty() || std::regex_match(label, skipRows))
+            continue;
         if (label == "Ad Views") {
             auto views = parsePrice(value);
             if (views.has_value()) {
@@ -217,7 +234,8 @@ inline Offer parseAdvertsProduct(std::string_view html, std::string_view id, std
     }
 
     std::string seller = cleanText(document.querySelector("a.sellername"));
-    if (seller.empty()) seller = "unknown";
+    if (seller.empty())
+        seller = "unknown";
 
     std::string url;
     if (ldOffer.is_object() && ldOffer.contains("url")) {
@@ -234,22 +252,22 @@ inline Offer parseAdvertsProduct(std::string_view html, std::string_view id, std
     offer.name = name;
     offer.seller = seller;
     offer.condition = condition;
-    offer.price = Price{ *amount, "EUR", std::nullopt, true };
-    offer.delivery = Delivery{ "unknown", std::nullopt, std::nullopt, std::nullopt, "listing" };
+    offer.price = Price{*amount, "EUR", std::nullopt, true};
+    offer.delivery = Delivery{"unknown", std::nullopt, std::nullopt, std::nullopt, "listing"};
     offer.details = std::move(details);
     offer.checkedAt = std::string(checkedAt);
     return offer;
 }
 
 class AdvertsAdapter : public SiteAdapter {
-public:
+  public:
     std::string id() const override { return "adverts"; }
 
     std::string matchHint() const override {
         return "Adverts.ie matches ads containing the words in the title or description; use fewer, plainer words (a model name, not a sentence).";
     }
 
-    SearchResult search(SiteContext& ctx, const SearchQuery& q) override {
+    SearchResult search(SiteContext &ctx, const SearchQuery &q) override {
         const std::string BASE = "https://www.adverts.ie/";
         std::string price;
         if (q.filters.minPrice.has_value() || q.filters.maxPrice.has_value()) {
@@ -272,7 +290,7 @@ public:
         return res;
     }
 
-    std::vector<Offer> offer(SiteContext& ctx, const OfferRef& ref, const OfferOptions& options) override {
+    std::vector<Offer> offer(SiteContext &ctx, const OfferRef &ref, const OfferOptions &options) override {
         (void)options;
         const std::string BASE = "https://www.adverts.ie/";
         std::string id = ref.id.value_or("");
@@ -287,7 +305,7 @@ public:
             throw std::runtime_error("adverts: pass an ad id or an ad URL");
         }
         std::string html = ctx.fetchText(BASE + id);
-        return { parseAdvertsProduct(html, id, "2026-10-15T00:00:00Z") };
+        return {parseAdvertsProduct(html, id, "2026-10-15T00:00:00Z")};
     }
 };
 

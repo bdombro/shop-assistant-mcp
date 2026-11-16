@@ -15,8 +15,7 @@ inline const std::set<std::string> HUNTOFFICE_SKIP{
     "id", "thumbnail", "url", "name", "longDescription", "sku", "reference", "keywords",
     "category_level_1", "category_level_2", "manufacturer", "price", "originalPrice", "campaign",
     "inStock", "delivery", "vatPrice", "values", "variants", "boost", "statusCode", "sales",
-    "detailed_thumb_url", "enable_2nd_thumbnail", "prices_from"
-};
+    "detailed_thumb_url", "enable_2nd_thumbnail", "prices_from"};
 
 inline std::string huntofficePageUrl(std::string_view href) {
     const std::string BASE = "https://www.huntoffice.ie/";
@@ -40,23 +39,21 @@ inline core::Delivery parseHuntOfficeDelivery(std::string_view label, std::optio
             .minDays = std::stoi(m[1].str()),
             .maxDays = std::stoi(m[2].str()),
             .cost = 9.99,
-            .source = "listing"
-        };
+            .source = "listing"};
     }
     return core::Delivery{
         .status = "available",
         .cost = 9.99,
-        .source = "site default"
-    };
+        .source = "site default"};
 }
 
-inline std::optional<core::Offer> huntofficeFromItem(const slimr::Json& it, const std::string& checkedAt) {
+inline std::optional<core::Offer> huntofficeFromItem(const slimr::Json &it, const std::string &checkedAt) {
     if (!it.is_object() || !it.contains("attributes") || !it["attributes"].is_array()) {
         return std::nullopt;
     }
 
-    auto getAttrValues = [&](std::string_view name) -> const slimr::Json::array_t* {
-        for (const auto& a : it["attributes"].get<slimr::Json::array_t>()) {
+    auto getAttrValues = [&](std::string_view name) -> const slimr::Json::array_t * {
+        for (const auto &a : it["attributes"].get<slimr::Json::array_t>()) {
             if (a.is_object() && a.contains("name") && a["name"].is_string() && a["name"].get<std::string>() == name) {
                 if (a.contains("values") && a["values"].is_array()) {
                     return &a["values"].get<slimr::Json::array_t>();
@@ -67,12 +64,15 @@ inline std::optional<core::Offer> huntofficeFromItem(const slimr::Json& it, cons
     };
 
     auto getOneStr = [&](std::string_view name) -> std::string {
-        auto* vals = getAttrValues(name);
+        auto *vals = getAttrValues(name);
         if (vals && !vals->empty()) {
-            const auto& first = (*vals)[0];
-            if (first.is_string()) return first.get<std::string>();
-            if (first.is_number()) return std::to_string(first.as<double>());
-            if (first.is_boolean()) return first.as<bool>() ? "true" : "false";
+            const auto &first = (*vals)[0];
+            if (first.is_string())
+                return first.get<std::string>();
+            if (first.is_number())
+                return std::to_string(first.as<double>());
+            if (first.is_boolean())
+                return first.as<bool>() ? "true" : "false";
         }
         return "";
     };
@@ -83,11 +83,13 @@ inline std::optional<core::Offer> huntofficeFromItem(const slimr::Json& it, cons
 
     std::optional<double> inc;
     std::string vatPriceStr = getOneStr("vatPrice");
-    if (!vatPriceStr.empty()) inc = core::parsePrice(vatPriceStr);
+    if (!vatPriceStr.empty())
+        inc = core::parsePrice(vatPriceStr);
 
     std::optional<double> ex;
     std::string priceStr = getOneStr("price");
-    if (!priceStr.empty()) ex = core::parsePrice(priceStr);
+    if (!priceStr.empty())
+        ex = core::parsePrice(priceStr);
 
     std::optional<double> amount = inc.has_value() ? inc : ex;
     if (name.empty() || url.empty() || !amount || *amount <= 0.0) {
@@ -95,38 +97,48 @@ inline std::optional<core::Offer> huntofficeFromItem(const slimr::Json& it, cons
     }
 
     std::string brand = getOneStr("manufacturer");
-    if (brand.empty()) brand = getOneStr("Brand");
+    if (brand.empty())
+        brand = getOneStr("Brand");
     brand = cleanText(decodeHtmlEntities(brand));
 
     std::string category = getOneStr("category_level_2");
-    if (category.empty()) category = getOneStr("category_level_1");
+    if (category.empty())
+        category = getOneStr("category_level_1");
     category = cleanText(decodeHtmlEntities(category));
 
     std::optional<bool> inStock;
-    auto* inStockVals = getAttrValues("inStock");
+    auto *inStockVals = getAttrValues("inStock");
     if (inStockVals && !inStockVals->empty()) {
-        const auto& first = (*inStockVals)[0];
-        if (first.is_boolean()) inStock = first.as<bool>();
+        const auto &first = (*inStockVals)[0];
+        if (first.is_boolean())
+            inStock = first.as<bool>();
     }
 
     auto quantity = core::parseQuantity(name);
 
     std::map<std::string, slimr::Json> details;
-    for (const auto& a : it["attributes"].get<slimr::Json::array_t>()) {
-        if (!a.is_object() || !a.contains("name") || !a["name"].is_string()) continue;
+    for (const auto &a : it["attributes"].get<slimr::Json::array_t>()) {
+        if (!a.is_object() || !a.contains("name") || !a["name"].is_string())
+            continue;
         std::string aName = a["name"].get<std::string>();
-        if (HUNTOFFICE_SKIP.contains(aName) || aName.ends_with("_pos")) continue;
-        if (!a.contains("values") || !a["values"].is_array()) continue;
+        if (HUNTOFFICE_SKIP.contains(aName) || aName.ends_with("_pos"))
+            continue;
+        if (!a.contains("values") || !a["values"].is_array())
+            continue;
 
         std::string joined;
-        for (const auto& v : a["values"].get<slimr::Json::array_t>()) {
+        for (const auto &v : a["values"].get<slimr::Json::array_t>()) {
             std::string s;
-            if (v.is_string()) s = v.get<std::string>();
-            else if (v.is_number()) s = std::to_string(v.as<double>());
-            else if (v.is_boolean()) s = v.as<bool>() ? "true" : "false";
+            if (v.is_string())
+                s = v.get<std::string>();
+            else if (v.is_number())
+                s = std::to_string(v.as<double>());
+            else if (v.is_boolean())
+                s = v.as<bool>() ? "true" : "false";
             s = cleanText(decodeHtmlEntities(s));
             if (!s.empty()) {
-                if (!joined.empty()) joined += ", ";
+                if (!joined.empty())
+                    joined += ", ";
                 joined += s;
             }
         }
@@ -156,33 +168,37 @@ inline std::optional<core::Offer> huntofficeFromItem(const slimr::Json& it, cons
     offer.id = id;
     offer.url = huntofficePageUrl(url);
     offer.name = name;
-    if (!brand.empty()) offer.brand = brand;
-    if (!category.empty()) offer.category = category;
+    if (!brand.empty())
+        offer.brand = brand;
+    if (!category.empty())
+        offer.category = category;
     offer.price = core::Price{
         .amount = *amount,
         .currency = "EUR",
-        .taxIncluded = inc.has_value()
-    };
-    if (quantity) offer.quantity = *quantity;
-    if (inStock.has_value()) offer.inStock = *inStock;
+        .taxIncluded = inc.has_value()};
+    if (quantity)
+        offer.quantity = *quantity;
+    if (inStock.has_value())
+        offer.inStock = *inStock;
     offer.delivery = delivery;
-    if (!details.empty()) offer.details = std::move(details);
+    if (!details.empty())
+        offer.details = std::move(details);
     offer.checkedAt = checkedAt;
 
     return offer;
 }
 
-inline core::SearchResult parseSearch(const slimr::Json& json, const std::string& checkedAt) {
+inline core::SearchResult parseSearch(const slimr::Json &json, const std::string &checkedAt) {
     std::vector<core::Offer> offers;
     std::optional<int> total;
 
     if (json.is_object() && json.contains("results") && json["results"].is_object()) {
-        const auto& results = json["results"];
+        const auto &results = json["results"];
         if (results.contains("count") && results["count"].is_number()) {
             total = results["count"].as<int>();
         }
         if (results.contains("items") && results["items"].is_array()) {
-            for (const auto& it : results["items"].get<slimr::Json::array_t>()) {
+            for (const auto &it : results["items"].get<slimr::Json::array_t>()) {
                 auto o = huntofficeFromItem(it, checkedAt);
                 if (o) {
                     offers.push_back(std::move(*o));
@@ -194,7 +210,7 @@ inline core::SearchResult parseSearch(const slimr::Json& json, const std::string
     return core::SearchResult{.offers = std::move(offers), .total = total};
 }
 
-inline core::Offer parseProduct(std::string_view html, const std::string& checkedAt, const std::optional<core::Offer>& row = std::nullopt) {
+inline core::Offer parseProduct(std::string_view html, const std::string &checkedAt, const std::optional<core::Offer> &row = std::nullopt) {
     auto doc = core::Document::parse(html);
     auto blocks = core::jsonLdBlocks(html);
     auto ld = core::findLd(blocks, "Product");
@@ -213,33 +229,40 @@ inline core::Offer parseProduct(std::string_view html, const std::string& checke
         name = cleanText((*ld)["name"].get<std::string>());
     } else {
         auto h1 = doc.querySelector("h1");
-        if (h1) name = cleanText(h1->text());
-        else if (row) name = row->name;
+        if (h1)
+            name = cleanText(h1->text());
+        else if (row)
+            name = row->name;
     }
 
     std::optional<double> inc;
     auto incEl = doc.querySelector(".inc-vat");
-    if (incEl) inc = core::parsePrice(incEl->text());
+    if (incEl)
+        inc = core::parsePrice(incEl->text());
     if (!inc && ld && ld->is_object() && ld->contains("offers")) {
-        const auto& offersVal = (*ld)["offers"];
+        const auto &offersVal = (*ld)["offers"];
         if (offersVal.is_array() && !offersVal.get<slimr::Json::array_t>().empty()) {
-            const auto& first = offersVal.get<slimr::Json::array_t>()[0];
+            const auto &first = offersVal.get<slimr::Json::array_t>()[0];
             if (first.is_object() && first.contains("price")) {
-                if (first["price"].is_string()) inc = core::parsePrice(first["price"].get<std::string>());
-                else if (first["price"].is_number()) inc = first["price"].as<double>();
+                if (first["price"].is_string())
+                    inc = core::parsePrice(first["price"].get<std::string>());
+                else if (first["price"].is_number())
+                    inc = first["price"].as<double>();
             }
         }
     }
 
     std::optional<double> ex;
     auto exEl = doc.querySelector(".ex-vat");
-    if (exEl) ex = core::parsePrice(exEl->text());
+    if (exEl)
+        ex = core::parsePrice(exEl->text());
 
     std::string canonical;
     auto canEl = doc.querySelector("link[rel=\"canonical\"]");
     if (canEl) {
         auto href = canEl->attr("href");
-        if (href) canonical = *href;
+        if (href)
+            canonical = *href;
     }
 
     if (id.empty() || name.empty() || (!inc && !ex)) {
@@ -248,9 +271,9 @@ inline core::Offer parseProduct(std::string_view html, const std::string& checke
 
     std::string availability;
     if (ld && ld->is_object() && ld->contains("offers")) {
-        const auto& offersVal = (*ld)["offers"];
+        const auto &offersVal = (*ld)["offers"];
         if (offersVal.is_array() && !offersVal.get<slimr::Json::array_t>().empty()) {
-            const auto& first = offersVal.get<slimr::Json::array_t>()[0];
+            const auto &first = offersVal.get<slimr::Json::array_t>()[0];
             if (first.is_object() && first.contains("availability") && first["availability"].is_string()) {
                 availability = first["availability"].get<std::string>();
             }
@@ -260,13 +283,17 @@ inline core::Offer parseProduct(std::string_view html, const std::string& checke
     std::optional<bool> inStock;
     static const std::regex outRe(R"(OutOfStock|SoldOut)", std::regex::icase);
     static const std::regex inRe(R"(InStock)", std::regex::icase);
-    if (std::regex_search(availability, outRe)) inStock = false;
-    else if (std::regex_search(availability, inRe)) inStock = true;
-    else if (row) inStock = row->inStock;
+    if (std::regex_search(availability, outRe))
+        inStock = false;
+    else if (std::regex_search(availability, inRe))
+        inStock = true;
+    else if (row)
+        inStock = row->inStock;
 
     std::string timelineText;
     auto timeEl = doc.querySelector(".timeline-text");
-    if (timeEl) timelineText = cleanText(timeEl->text());
+    if (timeEl)
+        timelineText = cleanText(timeEl->text());
     auto delivery = parseHuntOfficeDelivery(timelineText, inStock);
 
     std::optional<std::string> brand;
@@ -298,15 +325,19 @@ inline core::Offer parseProduct(std::string_view html, const std::string& checke
     offer.id = id;
     offer.url = url;
     offer.name = name;
-    if (brand) offer.brand = *brand;
-    if (row && row->category) offer.category = row->category;
+    if (brand)
+        offer.brand = *brand;
+    if (row && row->category)
+        offer.category = row->category;
     if (inc.has_value()) {
         offer.price = core::Price{.amount = *inc, .currency = "EUR", .taxIncluded = true};
     } else {
         offer.price = core::Price{.amount = *ex, .currency = "EUR", .taxIncluded = false};
     }
-    if (quantity) offer.quantity = *quantity;
-    if (inStock.has_value()) offer.inStock = *inStock;
+    if (quantity)
+        offer.quantity = *quantity;
+    if (inStock.has_value())
+        offer.inStock = *inStock;
     offer.delivery = delivery;
     offer.details = std::move(details);
     offer.checkedAt = checkedAt;
@@ -315,14 +346,14 @@ inline core::Offer parseProduct(std::string_view html, const std::string& checke
 }
 
 class HuntOffice : public core::SiteAdapter {
-public:
+  public:
     std::string id() const override { return "huntoffice"; }
     bool deliveryOnly() const override { return true; }
     std::string matchHint() const override {
         return "Loop54 matches product words (\"mesh chair\", \"stapler\", \"a4 paper 80gsm\"). Bare category words (\"chair\", \"desk\", \"printer\") redirect to a category page and return no rows; add a qualifier or use a model code.";
     }
 
-    core::SearchResult search(core::SiteContext& ctx, const core::SearchQuery& q) override {
+    core::SearchResult search(core::SiteContext &ctx, const core::SearchQuery &q) override {
         const std::string SEARCH = "https://huntoffice-ie.54proxy.com/search";
         int take = std::min(q.limit * 2, 60);
 
@@ -356,7 +387,7 @@ public:
         return res;
     }
 
-    std::vector<core::Offer> offer(core::SiteContext& ctx, const core::OfferRef& ref, const core::OfferOptions& options) override {
+    std::vector<core::Offer> offer(core::SiteContext &ctx, const core::OfferRef &ref, const core::OfferOptions &options) override {
         (void)options;
         const std::string SEARCH = "https://huntoffice-ie.54proxy.com/search";
         std::optional<core::Offer> row;
@@ -364,7 +395,8 @@ public:
         if (ref.url) {
             url = huntofficePageUrl(*ref.url);
         } else {
-            if (!ref.id) throw std::runtime_error("huntoffice: give an id or url");
+            if (!ref.id)
+                throw std::runtime_error("huntoffice: give an id or url");
             std::string id = *ref.id;
             slimr::Json body;
             body["query"] = "H" + id;
@@ -383,13 +415,14 @@ public:
 
             auto json = ctx.fetchJson(SEARCH, init);
             auto found = parseSearch(json, "").offers;
-            for (const auto& o : found) {
+            for (const auto &o : found) {
                 if (o.id == id) {
                     row = o;
                     break;
                 }
             }
-            if (!row) throw std::runtime_error("huntoffice: no product with id " + id);
+            if (!row)
+                throw std::runtime_error("huntoffice: no product with id " + id);
             url = row->url;
         }
 
