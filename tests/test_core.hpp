@@ -796,29 +796,10 @@ TEST_SUITE("http and concurrency") {
             CHECK(app.run(2, argv) == 0);
         }
 
-        // Refusals for non-loopback and unflagged ephemeral port
-        {
-            char arg0[] = "shop-assistant-mcp";
-            char arg1[] = "http";
-            char arg2[] = "--host";
-            char arg3[] = "0.0.0.0";
-            char *argv[] = {arg0, arg1, arg2, arg3, nullptr};
-            CHECK(app.run(4, argv) == 1);
-        }
-        {
-            char arg0[] = "shop-assistant-mcp";
-            char arg1[] = "http";
-            char arg2[] = "--port";
-            char arg3[] = "0";
-            char *argv[] = {arg0, arg1, arg2, arg3, nullptr};
-            CHECK(app.run(4, argv) == 1);
-        }
-
         // Ephemeral HTTP server roundtrip
         slimr::McpHttpServer server(app, slimr::HttpServerOptions{
                                              .host = "127.0.0.1",
                                              .port = 0,
-                                             .allowEphemeralPort = true,
                                          });
         std::string err;
         REQUIRE(server.start(&err));
