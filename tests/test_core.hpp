@@ -67,6 +67,7 @@ TEST_CASE("reporting is opt-in and follows BUGSINK_DSN after app construction") 
     unsetenv("BUGSINK_DSN");
     auto app = shop::make_shop_assistant_app();
     REQUIRE(app.bugsink() != nullptr);
+    CHECK(app.bugsink()->release() == std::string("shop-assistant-mcp@") + SHOP_ASSISTANT_APP_VERSION);
     CHECK(app.bugsink()->effectiveDsn().empty());
     setenv("BUGSINK_DSN", "https://public@example.invalid/1", 1);
     CHECK(app.bugsink()->effectiveDsn() == "https://public@example.invalid/1");
@@ -817,6 +818,7 @@ TEST_SUITE("http and concurrency") {
         CHECK(discStatus == 200);
         CHECK(disc["result"]["supportedVersions"][0].get<std::string>() == "2026-07-28");
         CHECK(disc["result"]["_meta"]["io.modelcontextprotocol/serverInfo"]["name"].get<std::string>() == "shop-assistant-mcp");
+        CHECK(disc["result"]["_meta"]["io.modelcontextprotocol/serverInfo"]["version"].get<std::string>() == SHOP_ASSISTANT_APP_VERSION);
 
         auto [listStatus, listed] = postMcp(
             port, "tools/list",
