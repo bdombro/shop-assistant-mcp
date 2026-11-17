@@ -2,7 +2,7 @@
 
 Written for: AI coding agents working in the `shop-assistant-mcp` C++26 plugin repository.
 
-`shop-assistant-mcp` is a C++26 MCP plugin and CLI built on `slimr-*` libraries and vcpkg-managed Lexbor that lets agents search, compare offers, read product pages, and interact with guarded Brave CDP browser tabs across 22 onboarded retail sites without ever being able to purchase or access checkout/account pages.
+`shop-assistant-mcp` is a C++26 MCP server built on `slimr-*` libraries and vcpkg-managed Lexbor that lets agents search, compare offers, read product pages, and interact with guarded Brave CDP browser tabs across 22 onboarded retail sites without ever being able to purchase or access checkout/account pages.
 
 <!-- cpp-templates:begin -->
 <!-- cpp-templates:commit c746b02c9f5b17b63c4921e6adff7fa8c5f6dc37 -->

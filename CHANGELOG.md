@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Drop per-tool CLI and move REST tool/OpenAPI endpoints under `/tools/` (enabled by default)
+
 ## v2.2.1 - 2026-11-17
 
 - Default HTTP bind is now `127.0.0.1` (pass `--host 0.0.0.0` to expose) via `slimr-serve` v0.3.0

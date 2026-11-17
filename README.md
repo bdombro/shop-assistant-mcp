@@ -99,9 +99,9 @@ Alternative client schemas are in the
 applies to every transport.
 
 
-## Tools & CLI Commands
+## Tools & HTTP Endpoints
 
-Every tool is exposed over MCP (`shop-assistant-mcp http` on `http://127.0.0.1:10005/mcp`) and on the CLI (`shop-assistant-mcp <tool> ['{"arg":"val"}']`). Existing `shop-assistant://` resources and data paths are unchanged.
+Every tool is exposed over MCP (`shop-assistant-mcp http` on `http://127.0.0.1:10005/mcp`) and over HTTP at `/tools/<name>` (enabled by default). Existing `shop-assistant://` resources and data paths are unchanged.
 
 | Tool | Mutating | Description |
 | --- | --- | --- |
@@ -131,20 +131,20 @@ Every tool is exposed over MCP (`shop-assistant-mcp http` on `http://127.0.0.1:1
 - `shop-assistant://browser` — Guidelines for interactive guarded browser tab usage.
 - `shop-assistant://onboard-site` — Playbook for onboarding and testing new site adapters.
 
-### CLI Examples
+### HTTP Examples (`curl`)
 
 ```bash
 # Search Irish DIY sites for an 18V drill under €150
-./build/bin/shop-assistant-mcp search '{"query":"einhell 18v drill","sites":["screwfix","woodies","chadwicks","mcquillantools"],"maxPrice":150}'
+curl -sS -X POST http://127.0.0.1:10005/tools/search -d '{"query":"einhell 18v drill","sites":["screwfix","woodies","chadwicks","mcquillantools"],"maxPrice":150}'
 
 # Read structured product offer details
-./build/bin/shop-assistant-mcp offer '{"url":"https://www.screwfix.ie/p/einhell-pxc-18v-li-ion-power-x-change-cordless-combi-drill/1234x"}'
+curl -sS -X POST http://127.0.0.1:10005/tools/offer -d '{"url":"https://www.screwfix.ie/p/einhell-pxc-18v-li-ion-power-x-change-cordless-combi-drill/1234x"}'
 
 # List all onboarded sites and themes
-./build/bin/shop-assistant-mcp themes
+curl -sS -X POST http://127.0.0.1:10005/tools/themes -d '{}'
 
 # Check plugin & CDP status
-./build/bin/shop-assistant-mcp status
+curl -sS -X POST http://127.0.0.1:10005/tools/status -d '{}'
 ```
 
 ## Site Access Policy & Configuration

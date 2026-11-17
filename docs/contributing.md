@@ -169,7 +169,7 @@ Bump a library baseline in `vcpkg-configuration.json` only when a bug fix, new A
 
 ## App Architecture
 
-The standalone MCP and JSON CLI use `slimr-*` and the vcpkg-managed `lexbor` HTML parser and CSS selector engine.
+The standalone MCP server uses `slimr-*` and the vcpkg-managed `lexbor` HTML parser and CSS selector engine.
 
 ```text
 plugins/shop-assistant-mcp/
@@ -217,9 +217,9 @@ plugins/shop-assistant-mcp/
 │   │   ├── all_sites.hpp     # Registers all 22 site adapters into `AdapterRegistry`
 │   │   └── <site>.hpp        # 22 site-specific HTML/JSON-LD parsers (`screwfix.hpp`, `amazon.hpp`, …)
 │   ├── app.hpp               # `shop::make_shop_assistant_app()` registering all 19 tools, resources & optional reporting
-│   └── main.cpp              # Standalone CLI and Streamable HTTP (`127.0.0.1:10005`) entrypoint
+│   └── main.cpp              # Standalone Streamable HTTP (`127.0.0.1:10005`) entrypoint
 ├── tests/
-│   ├── test_core.hpp         # Core DOM, Markdown, policy, SQLite, HTTP, CLI, and thread-safety test cases
+│   ├── test_core.hpp         # Core DOM, Markdown, policy, SQLite, HTTP, and thread-safety test cases
 │   ├── test_sites.hpp        # Site adapter fixture test suites
 │   └── test_main.cpp         # Combined test runner
 └── build/bin/
@@ -229,7 +229,7 @@ plugins/shop-assistant-mcp/
 ### Libraries Used
 
 - **`lexbor`:** vcpkg-managed static C HTML5 parser and CSS selector engine wrapped in `src/core/dom.hpp`.
-- **`<mcp.hpp>`, `<mcp_http.hpp>` & `<reflect.hpp>`:** Typed MCP tool definitions, compile-time JSON Schema generation, native MCP image blocks (`screenshot`), HTTP (`2026-07-28`), and narrow JSON CLI.
+- **`<mcp.hpp>`, `<mcp_http.hpp>` & `<reflect.hpp>`:** Typed MCP tool definitions, compile-time JSON Schema generation, native MCP image blocks (`screenshot`), HTTP (`2026-07-28`), and `/tools/<name>` HTTP endpoints.
 - **`cpp-httplib` (`<httplib.h>`):** CDP WebSocket connection and HTTP target discovery against Brave (`127.0.0.1:9222`).
 - **`<sqlite.hpp>` (`-lsqlite3`):** Page cache, site health tracking, and guard audit logging in `$(brew --prefix)/var/shop-assistant-mcp/shop.db`.
 - **`<yaml.hpp>` (`rapidyaml`):** Parsing `sites/<site>.md` YAML policy frontmatter (`parse_frontmatter`).
@@ -239,7 +239,7 @@ plugins/shop-assistant-mcp/
 
 ## HTTP & Client Configuration (MCP `2026-07-28`)
 
-`shop-assistant-mcp` defaults to Streamable HTTP on `127.0.0.1:10005/mcp` (`shop-assistant-mcp http`; pass `--host 0.0.0.0` to expose) while preserving direct JSON CLI invocation (`shop-assistant-mcp <tool> ['{...}']`).
+`shop-assistant-mcp` defaults to Streamable HTTP on `127.0.0.1:10005/mcp` (`shop-assistant-mcp http`; pass `--host 0.0.0.0` to expose) with `/tools/<name>` HTTP endpoints enabled by default.
 
 > **Breaking change (MCP `2026-07-28`):** Legacy `initialize` / `notifications/initialized` session handshakes are replaced by stateless `server/discover` with `MCP-Protocol-Version: 2026-07-28` and `Mcp-Method` headers (legacy `initialize` returns `-32601`).
 
