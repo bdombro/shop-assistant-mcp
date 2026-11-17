@@ -1,4 +1,4 @@
-# shop-assistant-mcp: Developer Reference
+# shop-assistant-mcp: Contributing
 
 User installation, configuration and compatibility status are in the
 [README](../README.md). This reference preserves implementation details,
@@ -8,6 +8,57 @@ example is not a claim of verified July/OAuth interoperability.
 Dependencies resolve directly from the pinned `slimr-down-now/*` vcpkg git
 registries in `vcpkg-configuration.json` (no local overlays). CI configuration
 is not evidence that a runner/platform/client has passed.
+
+<!-- cpp-templates:begin -->
+## Contents
+
+- [Develop and test](#develop-and-test)
+- [Unreleased libraries](#unreleased-libraries)
+- [Rules](#rules)
+- [PR, CI, and release flow](#pr-ci-and-release-flow)
+- [Dependency bumps](#dependency-bumps)
+
+## Develop and test
+
+```bash
+just doctor
+just test
+just lint
+```
+
+Iterate on a single doctest case with `just test "<case>"` (Debug build with ASan + UBSan, `BUGSINK_DSN=""`). For `homebrew-mcp` repos, run `just test-mcp` as well.
+
+## Unreleased libraries
+
+vcpkg reads extra port dirs from `VCPKG_OVERLAY_PORTS`, and an overlay wins over the registry. Point it at a dir of symlinks, one per unreleased lib; manifests never change:
+
+```sh
+mkdir -p ~/.vcpkg/overlays/dev
+ln -s ~/dev/slimr/<lib>/ports/slimr-<lib> ~/.vcpkg/overlays/dev/slimr-<lib>
+export VCPKG_OVERLAY_PORTS=~/.vcpkg/overlays/dev
+just test
+```
+
+Remove the symlink (or `unset VCPKG_OVERLAY_PORTS`) to build against the released lib again. Keep the export out of shell startup files.
+
+## Rules
+
+- Never push directly to `main`; all changes land through squash-merged pull requests.
+- PRs touch no release files (`VERSION`, `CHANGELOG.md`, `versions/`, `Formula/*.rb`, `Casks/*.rb`).
+- Write the PR title (plus optional body) as the changelog entry; squash-merge turns it into one commit on `main`.
+- Sanitize everything (no secrets, tokens, DSNs, or personal data in commits, logs, or docs).
+- Run `just test` (ASan + UBSan) and `just lint` before opening or updating a PR.
+
+## PR, CI, and release flow
+
+- Every PR runs `test.yml`: a `gate` job skips macOS/Linux builds on docs-only PRs, and a single `ci` summary job gates merge.
+- Merging to `main` triggers `release.yml` (one release at a time). It collects squash commits since the last tag (skipping docs-only ranges), picks the bump from merged PR labels (`patch` default, or `release:minor` / `release:major`; agents must ask before adding labels), writes `VERSION`/`vcpkg.json`, `CHANGELOG.md` (and `vcpkg x-add-version` for libraries), commits as the GitHub App, tags `vX.Y.Z`, and publishes the GitHub Release (plus assets and `Formula/*.rb` / `Casks/*.rb` updates).
+- Pre-releases are a known option (tag/channel), not currently built.
+
+## Dependency bumps
+
+Bump a library baseline in `vcpkg-configuration.json` only when a bug fix, new API, or security fix requires it; otherwise wait for the next `just upgrade-deps`.
+<!-- cpp-templates:end -->
 
 ## App Architecture
 
@@ -20,7 +71,7 @@ plugins/shop-assistant-mcp/
 ├── vcpkg.json                # Independently resolved dependencies (slimr-mcp[http], lexbor)
 ├── vcpkg-configuration.json  # Pinned vcpkg builtin and slimr-* git registries
 ├── CMakeLists.txt            # App/test targets, imported dependencies, safety settings
-├── justfile                  # CMake/Ninja, doctor, fmt, lint, test-mcp, release, and brew service lifecycle
+├── justfile                  # CMake/Ninja, doctor, fmt, lint, test-mcp, and brew service lifecycle
 ├── README.md                 # User & operator documentation
 ├── AGENTS.md                 # Maintainer & AI agent conventions
 ├── agents/
@@ -29,11 +80,11 @@ plugins/shop-assistant-mcp/
 │   └── shop-assistant-mcp.rb # Homebrew formula (macOS) + LaunchAgent service (with docs & sites pkgshare)
 ├── .github/
 │   ├── actions/setup/action.yml    # Toolchain & vcpkg bootstrap + binary cache
-│   └── workflows/{test,release}.yml # PR/manual test workflow and tag/formula release workflow
+│   └── workflows/{test,release}.yml # PR test workflow and merge-to-main release workflow
 ├── scripts/
 │   ├── doctor.sh             # Tooling, C++26, LLVM_BIN, VCPKG_ROOT checks
 │   ├── test-mcp.ts           # Bun ephemeral HTTP (`2026-07-28`) smoke check
-│   ├── release.ts            # Release version bump, changelog promotion, commit/tag/gh-release
+│   ├── release.ts            # Post-merge release bump, changelog generation, tag/gh-release, formula update
 │   └── formula-shared.ts     # Formula/changelog parsing and SHA-256 helpers
 ├── .clang-format / .clang-tidy     # Formatting and static-analysis config (llvm@23)
 ├── .clangd / .vscode/settings.json # Editor compilation database (build/cmake/Debug)
@@ -180,20 +231,6 @@ just test     # Run core, site-parser, CLI, HTTP, and thread-safety tests with A
 just build    # Build Release binary at build/bin/shop-assistant-mcp
 just lint     # Check formatting and analyze src/main.cpp using compile_commands.json
 just test-mcp # Verify ephemeral HTTP (http --port 0) against MCP 2026-07-28
-just release patch # Trigger release.yml, watch completion, and pull the release commit
 ```
 
 `just test` and `just test-mcp` run the server with an isolated HOME/XDG environment, no external CLI PATH or credentials, `SHOP_ASSISTANT_DIALOGS=off`, and Bugsink disabled; they never open browser tabs or invoke external retail sites. `platforms` is set to `macos` (`macos-26` runner in CI).
-
-## Develop against an unreleased lib
-
-vcpkg reads extra port dirs from `VCPKG_OVERLAY_PORTS`, and an overlay wins over the registry. Point it at a dir of symlinks, one per unreleased lib; manifests never change:
-
-```sh
-mkdir -p ~/.vcpkg/overlays/dev
-ln -s ~/dev/slimr/<name>/ports/slimr-<name> ~/.vcpkg/overlays/dev/slimr-<name>
-export VCPKG_OVERLAY_PORTS=~/.vcpkg/overlays/dev
-just test
-```
-
-Remove the symlink (or `unset VCPKG_OVERLAY_PORTS`) to build against the released lib again. Keep the export out of shell startup files. `just release` refuses to run while `VCPKG_OVERLAY_PORTS` is set.

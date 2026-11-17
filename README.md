@@ -39,7 +39,7 @@ brew tap bdombro/shop-assistant-mcp https://github.com/bdombro/shop-assistant-mc
 brew install bdombro/shop-assistant-mcp/shop-assistant-mcp
 ```
 
-Note: check [releases](https://github.com/bdombro/shop-assistant-mcp/releases) for published binaries before running `brew install`; if no release is published yet, build from source per [development](docs/development.md). Installing a Cursor/Claude manifest only configures an endpoint; it does not install or start the native service.
+Note: check [releases](https://github.com/bdombro/shop-assistant-mcp/releases) for published binaries before running `brew install`; if no release is published yet, build from source per [contributing](docs/contributing.md). Installing a Cursor/Claude manifest only configures an endpoint; it does not install or start the native service.
 
 
 ## Configure the Shopping Browser
@@ -95,7 +95,7 @@ After starting the service, add this server to OpenCode v2.2.6's
 
 Use either an explicit server entry or a plugin manifest, not both.
 Alternative client schemas are in the
-[developer reference](docs/development.md). The compatibility notice above
+[contributing guide](docs/contributing.md). The compatibility notice above
 applies to every transport.
 
 
@@ -191,5 +191,5 @@ Service environment variables can be placed in `$(brew --prefix)/etc/shop-assist
 
 ## Development
 
-See [docs/development.md](docs/development.md) for source builds, direct-binary
-testing on port `20005`, `just release`, and architecture details.
+See [docs/contributing.md](docs/contributing.md) for source builds, direct-binary
+testing on port `20005`, PR/CI/release flow, and architecture details.
