@@ -1,4 +1,4 @@
-# shop-assistant-mcp: Developer Reference
+# shop-assistant-mcp: Contributing
 
 User installation, configuration and compatibility status are in the
 [README](../README.md). This reference preserves implementation details,
@@ -9,9 +9,167 @@ Dependencies resolve directly from the pinned `slimr-down-now/*` vcpkg git
 registries in `vcpkg-configuration.json` (no local overlays). CI configuration
 is not evidence that a runner/platform/client has passed.
 
+<!-- cpp-templates:begin -->
+## Contents
+
+- [Develop and test](#develop-and-test)
+- [Unreleased libraries](#unreleased-libraries)
+- [Rules](#rules)
+- [PR, CI, and release flow](#pr-ci-and-release-flow)
+- [Maintainer setup](#maintainer-setup)
+- [Dependency bumps](#dependency-bumps)
+
+## Develop and test
+
+```bash
+just doctor
+just test
+just lint
+```
+
+Iterate on a single doctest case with `just test "<case>"` (Debug build with ASan + UBSan, `BUGSINK_DSN=""`). For `homebrew-mcp` repos, run `just test-mcp` as well.
+
+## Unreleased libraries
+
+vcpkg reads extra port dirs from `VCPKG_OVERLAY_PORTS`, and an overlay wins over the registry. Point it at a dir of symlinks, one per unreleased lib; manifests never change:
+
+```sh
+mkdir -p ~/.vcpkg/overlays/dev
+ln -s ~/dev/slimr/<lib>/ports/slimr-<lib> ~/.vcpkg/overlays/dev/slimr-<lib>
+export VCPKG_OVERLAY_PORTS=~/.vcpkg/overlays/dev
+just test
+```
+
+Remove the symlink (or `unset VCPKG_OVERLAY_PORTS`) to build against the released lib again. Keep the export out of shell startup files.
+
+## Rules
+
+- Never push directly to `main`; all changes land through squash-merged pull requests.
+- PRs touch no release files (`VERSION`, `CHANGELOG.md`, `versions/`, `Formula/*.rb`, `Casks/*.rb`).
+- Write the PR title (plus optional body) as the changelog entry; squash-merge turns it into one commit on `main`.
+- Sanitize everything (no secrets, tokens, DSNs, or personal data in commits, logs, or docs).
+- Run `just test` (ASan + UBSan) and `just lint` before opening or updating a PR.
+
+## PR, CI, and release flow
+
+- Every PR runs `test.yml`: a `gate` job skips macOS/Linux builds on docs-only PRs, and a single `ci` summary job gates merge.
+- Merging to `main` triggers `release.yml` (one release at a time). It collects squash commits since the last tag (skipping docs-only ranges), picks the bump from merged PR labels (`patch` default, or `release:minor` / `release:major`; agents must ask before adding labels), writes `VERSION`/`vcpkg.json`, `CHANGELOG.md` (and `vcpkg x-add-version` for libraries), commits as the GitHub App, tags `vX.Y.Z`, and publishes the GitHub Release (plus assets and `Formula/*.rb` / `Casks/*.rb` updates).
+- Pre-releases are a known option (tag/channel), not currently built.
+
+## Maintainer setup
+
+Direct pushes to `main` are blocked; `release.yml` uses a dedicated GitHub App so it can commit release metadata and formula updates without giving humans or agents an admin bypass.
+
+### 1. Create and install the release GitHub App
+
+Create one GitHub App (Settings -> Developer settings -> GitHub Apps):
+
+- **Homepage URL:** any URL (for example, the owner's GitHub profile)
+- **Callback / Setup URLs:** blank; **Webhook Active:** unchecked
+- **Repository permissions:** `Contents: Read and write`, `Metadata: Read-only`
+- **Where can this GitHub App be installed?:** Any account
+
+Record `<app-id>`, generate a private key, and save it locally if needed for manual recovery (it can always be regenerated):
+
+```sh
+chmod 600 ~/.ssh/<app-name>.private-key.pem
+```
+
+Install the App on each owner (org or user) and select the target repositories.
+
+### 2. Store Actions secrets
+
+Org-level (requires org owner and `admin:org` scope):
+
+```sh
+gh auth refresh -h github.com -s admin:org
+gh secret set RELEASE_APP_ID --org <owner> --visibility all --body "<app-id>"
+gh secret set RELEASE_APP_PRIVATE_KEY --org <owner> --visibility all < ~/.ssh/<app-name>.private-key.pem
+gh secret list --org <owner>
+```
+
+Per-repo (for user-owned repos or selected repos):
+
+```sh
+gh secret set RELEASE_APP_ID -R <owner>/<repo> --body "<app-id>"
+gh secret set RELEASE_APP_PRIVATE_KEY -R <owner>/<repo> < ~/.ssh/<app-name>.private-key.pem
+gh secret list -R <owner>/<repo>
+```
+
+`gh secret list` prints secret names only.
+
+### 3. Protect `main`
+
+Create (or `PUT /repos/<owner>/<repo>/rulesets/<ruleset-id>` to update) the `main` ruleset with App-only bypass, required `ci` check, squash-only merges, and no force push or deletion, then enforce squash-only merges on the repo:
+
+```sh
+gh api -X POST /repos/<owner>/<repo>/rulesets --input - <<'JSON'
+{
+  "name": "main",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] }
+  },
+  "bypass_actors": [
+    { "actor_id": <app-id>, "actor_type": "Integration", "bypass_mode": "always" }
+  ],
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": false,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": false,
+        "allowed_merge_methods": ["squash"]
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "required_status_checks": [{ "context": "ci" }]
+      }
+    }
+  ]
+}
+JSON
+
+gh api -X PATCH /repos/<owner>/<repo> \
+  -F allow_squash_merge=true \
+  -F allow_merge_commit=false \
+  -F allow_rebase_merge=false
+
+gh api /repos/<owner>/<repo>/rulesets
+```
+
+### 4. Act as the App (emergency fix or manual release step)
+
+Use [`scripts/release-bot`](https://github.com/slimr-down-now/cpp-templates/blob/main/scripts/release-bot) with `RELEASE_APP_ID` and `RELEASE_APP_KEY` set (under the hood it signs a short-lived `RS256` App JWT, exchanges it for an installation token, and revokes the token on exit):
+
+```sh
+export RELEASE_APP_ID=<app-id>
+export RELEASE_APP_KEY=~/.ssh/<app-name>.private-key.pem
+
+release-bot push-main                  # push HEAD to origin main as the App
+release-bot gh release create ...      # run one gh command with GH_TOKEN set
+release-bot shell                      # subshell with GH_TOKEN; revokes on exit
+```
+
+Flags before the subcommand: `--owner <owner>` (token scope; defaults to `origin` owner) and `--repo <owner>/<repo>` (`push-main` target; defaults to `origin`).
+
+## Dependency bumps
+
+Bump a library baseline in `vcpkg-configuration.json` only when a bug fix, new API, or security fix requires it; otherwise wait for the next `just upgrade-deps`.
+<!-- cpp-templates:end -->
+
 ## App Architecture
 
-The standalone MCP and JSON CLI use `slimr-*` and the vcpkg-managed `lexbor` HTML parser and CSS selector engine.
+The standalone MCP server uses `slimr-*` and the vcpkg-managed `lexbor` HTML parser and CSS selector engine.
 
 ```text
 plugins/shop-assistant-mcp/
@@ -20,7 +178,7 @@ plugins/shop-assistant-mcp/
 ├── vcpkg.json                # Independently resolved dependencies (slimr-mcp[http], lexbor)
 ├── vcpkg-configuration.json  # Pinned vcpkg builtin and slimr-* git registries
 ├── CMakeLists.txt            # App/test targets, imported dependencies, safety settings
-├── justfile                  # CMake/Ninja, doctor, fmt, lint, test-mcp, release, and brew service lifecycle
+├── justfile                  # CMake/Ninja, doctor, fmt, lint, test-mcp, and brew service lifecycle
 ├── README.md                 # User & operator documentation
 ├── AGENTS.md                 # Maintainer & AI agent conventions
 ├── agents/
@@ -29,11 +187,11 @@ plugins/shop-assistant-mcp/
 │   └── shop-assistant-mcp.rb # Homebrew formula (macOS) + LaunchAgent service (with docs & sites pkgshare)
 ├── .github/
 │   ├── actions/setup/action.yml    # Toolchain & vcpkg bootstrap + binary cache
-│   └── workflows/{test,release}.yml # PR/manual test workflow and tag/formula release workflow
+│   └── workflows/{test,release}.yml # PR test workflow and merge-to-main release workflow
 ├── scripts/
 │   ├── doctor.sh             # Tooling, C++26, LLVM_BIN, VCPKG_ROOT checks
 │   ├── test-mcp.ts           # Bun ephemeral HTTP (`2026-07-28`) smoke check
-│   ├── release.ts            # Release version bump, changelog promotion, commit/tag/gh-release
+│   ├── release.ts            # Post-merge release bump, changelog generation, tag/gh-release, formula update
 │   └── formula-shared.ts     # Formula/changelog parsing and SHA-256 helpers
 ├── .clang-format / .clang-tidy     # Formatting and static-analysis config (llvm@23)
 ├── .clangd / .vscode/settings.json # Editor compilation database (build/cmake/Debug)
@@ -59,9 +217,9 @@ plugins/shop-assistant-mcp/
 │   │   ├── all_sites.hpp     # Registers all 22 site adapters into `AdapterRegistry`
 │   │   └── <site>.hpp        # 22 site-specific HTML/JSON-LD parsers (`screwfix.hpp`, `amazon.hpp`, …)
 │   ├── app.hpp               # `shop::make_shop_assistant_app()` registering all 19 tools, resources & optional reporting
-│   └── main.cpp              # Standalone CLI and Streamable HTTP (`127.0.0.1:10005`) entrypoint
+│   └── main.cpp              # Standalone Streamable HTTP (`127.0.0.1:10005`) entrypoint
 ├── tests/
-│   ├── test_core.hpp         # Core DOM, Markdown, policy, SQLite, HTTP, CLI, and thread-safety test cases
+│   ├── test_core.hpp         # Core DOM, Markdown, policy, SQLite, HTTP, and thread-safety test cases
 │   ├── test_sites.hpp        # Site adapter fixture test suites
 │   └── test_main.cpp         # Combined test runner
 └── build/bin/
@@ -71,7 +229,7 @@ plugins/shop-assistant-mcp/
 ### Libraries Used
 
 - **`lexbor`:** vcpkg-managed static C HTML5 parser and CSS selector engine wrapped in `src/core/dom.hpp`.
-- **`<mcp.hpp>`, `<mcp_http.hpp>` & `<reflect.hpp>`:** Typed MCP tool definitions, compile-time JSON Schema generation, native MCP image blocks (`screenshot`), HTTP (`2026-07-28`), and narrow JSON CLI.
+- **`<mcp.hpp>`, `<mcp_http.hpp>` & `<reflect.hpp>`:** Typed MCP tool definitions, compile-time JSON Schema generation, native MCP image blocks (`screenshot`), HTTP (`2026-07-28`), and `/tools/<name>` HTTP endpoints.
 - **`cpp-httplib` (`<httplib.h>`):** CDP WebSocket connection and HTTP target discovery against Brave (`127.0.0.1:9222`).
 - **`<sqlite.hpp>` (`-lsqlite3`):** Page cache, site health tracking, and guard audit logging in `$(brew --prefix)/var/shop-assistant-mcp/shop.db`.
 - **`<yaml.hpp>` (`rapidyaml`):** Parsing `sites/<site>.md` YAML policy frontmatter (`parse_frontmatter`).
@@ -81,7 +239,7 @@ plugins/shop-assistant-mcp/
 
 ## HTTP & Client Configuration (MCP `2026-07-28`)
 
-`shop-assistant-mcp` defaults to Streamable HTTP on `127.0.0.1:10005/mcp` (`shop-assistant-mcp http`; pass `--host 0.0.0.0` to expose) while preserving direct JSON CLI invocation (`shop-assistant-mcp <tool> ['{...}']`).
+`shop-assistant-mcp` defaults to Streamable HTTP on `127.0.0.1:10005/mcp` (`shop-assistant-mcp http`; pass `--host 0.0.0.0` to expose) with `/tools/<name>` HTTP endpoints enabled by default.
 
 > **Breaking change (MCP `2026-07-28`):** Legacy `initialize` / `notifications/initialized` session handshakes are replaced by stateless `server/discover` with `MCP-Protocol-Version: 2026-07-28` and `Mcp-Method` headers (legacy `initialize` returns `-32601`).
 
@@ -180,21 +338,6 @@ just test     # Run core, site-parser, CLI, HTTP, and thread-safety tests with A
 just build    # Build Release binary at build/bin/shop-assistant-mcp
 just lint     # Check formatting and analyze src/main.cpp using compile_commands.json
 just test-mcp # Verify ephemeral HTTP (http --port 0) against MCP 2026-07-28
-just release patch # Trigger release.yml, watch completion, and pull the release commit
 ```
 
 `just test` and `just test-mcp` run the server with an isolated HOME/XDG environment, no external CLI PATH or credentials, `SHOP_ASSISTANT_DIALOGS=off`, and Bugsink disabled; they never open browser tabs or invoke external retail sites. `platforms` is set to `macos` (`macos-26` runner in CI).
-
-## Develop against an unreleased lib
-
-Add `"overlay-ports"` to the consumer's `vcpkg-configuration.json`, then run `just test` or `just build` as usual (add one entry per unreleased lib):
-
-```json
-{
-  "overlay-ports": [
-    "<relative path to ~/dev/slimr/<name>/ports/slimr-<name>>"
-  ]
-}
-```
-
-Remove `"overlay-ports"` and bump the registry baseline once the lib is released. Never commit or release with `overlay-ports` set.

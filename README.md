@@ -39,7 +39,7 @@ brew tap bdombro/shop-assistant-mcp https://github.com/bdombro/shop-assistant-mc
 brew install bdombro/shop-assistant-mcp/shop-assistant-mcp
 ```
 
-Note: check [releases](https://github.com/bdombro/shop-assistant-mcp/releases) for published binaries before running `brew install`; if no release is published yet, build from source per [development](docs/development.md). Installing a Cursor/Claude manifest only configures an endpoint; it does not install or start the native service.
+Note: check [releases](https://github.com/bdombro/shop-assistant-mcp/releases) for published binaries before running `brew install`; if no release is published yet, build from source per [contributing](docs/contributing.md). Installing a Cursor/Claude manifest only configures an endpoint; it does not install or start the native service.
 
 
 ## Configure the Shopping Browser
@@ -95,13 +95,13 @@ After starting the service, add this server to OpenCode v2.2.6's
 
 Use either an explicit server entry or a plugin manifest, not both.
 Alternative client schemas are in the
-[developer reference](docs/development.md). The compatibility notice above
+[contributing guide](docs/contributing.md). The compatibility notice above
 applies to every transport.
 
 
-## Tools & CLI Commands
+## Tools & HTTP Endpoints
 
-Every tool is exposed over MCP (`shop-assistant-mcp http` on `http://127.0.0.1:10005/mcp`) and on the CLI (`shop-assistant-mcp <tool> ['{"arg":"val"}']`). Existing `shop-assistant://` resources and data paths are unchanged.
+Every tool is exposed over MCP (`shop-assistant-mcp http` on `http://127.0.0.1:10005/mcp`) and over HTTP at `/tools/<name>` (enabled by default). Existing `shop-assistant://` resources and data paths are unchanged.
 
 | Tool | Mutating | Description |
 | --- | --- | --- |
@@ -131,20 +131,20 @@ Every tool is exposed over MCP (`shop-assistant-mcp http` on `http://127.0.0.1:1
 - `shop-assistant://browser` — Guidelines for interactive guarded browser tab usage.
 - `shop-assistant://onboard-site` — Playbook for onboarding and testing new site adapters.
 
-### CLI Examples
+### HTTP Examples (`curl`)
 
 ```bash
 # Search Irish DIY sites for an 18V drill under €150
-./build/bin/shop-assistant-mcp search '{"query":"einhell 18v drill","sites":["screwfix","woodies","chadwicks","mcquillantools"],"maxPrice":150}'
+curl -sS -X POST http://127.0.0.1:10005/tools/search -H 'Content-Type: application/json' -d '{"query":"einhell 18v drill","sites":["screwfix","woodies","chadwicks","mcquillantools"],"maxPrice":150}'
 
 # Read structured product offer details
-./build/bin/shop-assistant-mcp offer '{"url":"https://www.screwfix.ie/p/einhell-pxc-18v-li-ion-power-x-change-cordless-combi-drill/1234x"}'
+curl -sS -X POST http://127.0.0.1:10005/tools/offer -H 'Content-Type: application/json' -d '{"url":"https://www.screwfix.ie/p/einhell-pxc-18v-li-ion-power-x-change-cordless-combi-drill/1234x"}'
 
 # List all onboarded sites and themes
-./build/bin/shop-assistant-mcp themes
+curl -sS -X POST http://127.0.0.1:10005/tools/themes -H 'Content-Type: application/json' -d '{}'
 
 # Check plugin & CDP status
-./build/bin/shop-assistant-mcp status
+curl -sS -X POST http://127.0.0.1:10005/tools/status -H 'Content-Type: application/json' -d '{}'
 ```
 
 ## Site Access Policy & Configuration
@@ -191,5 +191,5 @@ Service environment variables can be placed in `$(brew --prefix)/etc/shop-assist
 
 ## Development
 
-See [docs/development.md](docs/development.md) for source builds, direct-binary
-testing on port `20005`, `just release`, and architecture details.
+See [docs/contributing.md](docs/contributing.md) for source builds, direct-binary
+testing on port `20005`, PR/CI/release flow, and architecture details.

@@ -714,10 +714,10 @@ TEST_SUITE("adapter helpers") {
 }
 
 // ============================================================================
-// 5. HTTP Transport, CLI, Resources & Thread-Safety Tests
+// 5. HTTP Transport, Resources & Thread-Safety Tests
 // ============================================================================
 TEST_SUITE("http and concurrency") {
-    TEST_CASE("http transport, server/discover, tools/list, CLI, and instructions") {
+    TEST_CASE("http transport, server/discover, tools/list, /tools, and instructions") {
         struct LoopbackFd {
             int fd{-1};
             ~LoopbackFd() {
@@ -784,18 +784,71 @@ TEST_SUITE("http and concurrency") {
             return {status, std::move(*parsed)};
         };
 
+        auto httpRequest = [](uint16_t port, std::string_view method, std::string_view path,
+                              std::string_view body = {}) -> std::pair<int, std::string> {
+            LoopbackFd sock;
+            sock.fd = ::socket(AF_INET, SOCK_STREAM, 0);
+            REQUIRE(sock.fd >= 0);
+
+            sockaddr_in addr{};
+            addr.sin_family = AF_INET;
+            addr.sin_port = htons(port);
+            REQUIRE(::inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr) == 1);
+            REQUIRE(::connect(sock.fd, reinterpret_cast<const sockaddr *>(&addr), sizeof(addr)) == 0);
+
+            std::string req = std::string(method) + " " + std::string(path) +
+                              " HTTP/1.1\r\nHost: 127.0.0.1:" + std::to_string(port) + "\r\n";
+            if (!body.empty()) {
+                req += "Content-Type: application/json\r\nContent-Length: " +
+                       std::to_string(body.size()) + "\r\n";
+            }
+            req += "Connection: close\r\n\r\n";
+            req += body;
+
+            size_t sent = 0;
+            while (sent < req.size()) {
+                ssize_t n = ::send(sock.fd, req.data() + sent, req.size() - sent, 0);
+                REQUIRE(n > 0);
+                sent += static_cast<size_t>(n);
+            }
+
+            std::string raw;
+            char buf[4096];
+            for (;;) {
+                pollfd pfd{sock.fd, POLLIN, 0};
+                REQUIRE(::poll(&pfd, 1, 5000) > 0);
+                ssize_t n = ::recv(sock.fd, buf, sizeof(buf), 0);
+                if (n <= 0)
+                    break;
+                raw.append(buf, static_cast<size_t>(n));
+            }
+
+            auto hdrEnd = raw.find("\r\n\r\n");
+            REQUIRE(hdrEnd != std::string::npos);
+            auto statusStart = raw.find(' ');
+            REQUIRE(statusStart != std::string::npos);
+            int status = std::stoi(raw.substr(statusStart + 1, 3));
+            return {status, raw.substr(hdrEnd + 4)};
+        };
+
         auto app = shop::make_shop_assistant_app();
         CHECK(app.version == SHOP_ASSISTANT_APP_VERSION);
         CHECK(app.instructions.find("shop-assistant://browser") != std::string::npos);
         CHECK(app.instructions.find("shop-assistant://guide") == std::string::npos);
         slimr::enable_http(app, slimr::HttpServerOptions{.host = "127.0.0.1", .port = 10005});
 
-        // CLI invocation
+        // Server-only CLI: reject tool names and removed flags
         {
             char arg0[] = "shop-assistant-mcp";
-            char arg1[] = "status";
-            char *argv[] = {arg0, arg1, nullptr};
-            CHECK(app.run(2, argv) == 0);
+            char argVer[] = "--version";
+            char *verArgv[] = {arg0, argVer, nullptr};
+            CHECK(app.run(2, verArgv) == 0);
+
+            for (const char *bad : {"status", "--openapi", "--remote", "--tools"}) {
+                std::string arg(bad);
+                char *argv[] = {arg0, arg.data(), nullptr};
+                CHECK(app.run(2, argv) != 0);
+            }
         }
 
         // Ephemeral HTTP server roundtrip
@@ -860,6 +913,22 @@ TEST_SUITE("http and concurrency") {
             R"({"jsonrpc":"2.0","id":4,"method":"initialize","params":{}})");
         CHECK(initStatus == 404);
         CHECK(initResp["error"]["code"].get<int64_t>() == -32601);
+
+        // /tools surface (on by default) and 404 at root
+        CHECK(httpRequest(port, "GET", "/openapi.json").first == 404);
+        CHECK(httpRequest(port, "POST", "/status", "{}").first == 404);
+
+        auto [toolsOpenapiStatus, toolsOpenapiBody] = httpRequest(port, "GET", "/tools/openapi.json");
+        CHECK(toolsOpenapiStatus == 200);
+        auto toolsOpenapi = slimr::parse_json(toolsOpenapiBody);
+        REQUIRE(toolsOpenapi.has_value());
+        CHECK((*toolsOpenapi)["paths"].contains("/tools/status"));
+
+        auto [toolStatus, toolBody] = httpRequest(port, "POST", "/tools/status", "{}");
+        CHECK(toolStatus == 200);
+        auto toolJson = slimr::parse_json(toolBody);
+        REQUIRE(toolJson.has_value());
+        CHECK((*toolJson)["sitesCount"].get<int64_t>() == 22);
 
         server.stop();
     }
