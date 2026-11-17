@@ -135,16 +135,16 @@ Every tool is exposed over MCP (`shop-assistant-mcp http` on `http://127.0.0.1:1
 
 ```bash
 # Search Irish DIY sites for an 18V drill under €150
-curl -sS -X POST http://127.0.0.1:10005/tools/search -d '{"query":"einhell 18v drill","sites":["screwfix","woodies","chadwicks","mcquillantools"],"maxPrice":150}'
+curl -sS -X POST http://127.0.0.1:10005/tools/search -H 'Content-Type: application/json' -d '{"query":"einhell 18v drill","sites":["screwfix","woodies","chadwicks","mcquillantools"],"maxPrice":150}'
 
 # Read structured product offer details
-curl -sS -X POST http://127.0.0.1:10005/tools/offer -d '{"url":"https://www.screwfix.ie/p/einhell-pxc-18v-li-ion-power-x-change-cordless-combi-drill/1234x"}'
+curl -sS -X POST http://127.0.0.1:10005/tools/offer -H 'Content-Type: application/json' -d '{"url":"https://www.screwfix.ie/p/einhell-pxc-18v-li-ion-power-x-change-cordless-combi-drill/1234x"}'
 
 # List all onboarded sites and themes
-curl -sS -X POST http://127.0.0.1:10005/tools/themes -d '{}'
+curl -sS -X POST http://127.0.0.1:10005/tools/themes -H 'Content-Type: application/json' -d '{}'
 
 # Check plugin & CDP status
-curl -sS -X POST http://127.0.0.1:10005/tools/status -d '{}'
+curl -sS -X POST http://127.0.0.1:10005/tools/status -H 'Content-Type: application/json' -d '{}'
 ```
 
 ## Site Access Policy & Configuration
