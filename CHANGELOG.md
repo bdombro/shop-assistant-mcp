@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## v2.2.2 - 2026-11-17
+
+- feat: drop per-tool CLI, expose /tools endpoints, and align CI/release tooling (#1)
+  * feat: use VCPKG_OVERLAY_PORTS and guard release
+  * ci: adopt cpp-templates PR CI, merge release, and contributing docs
+  * docs: maintainer setup for release App, secrets, rulesets
+  * docs: soft alignment marker and release-bot contributing docs
+  * feat: drop per-tool CLI and expose /tools endpoints
+  * docs: add Content-Type header to README curl examples
+  * chore: bump slimr-serve v0.3.1 and slimr-mcp v0.2.2 baselines
+- chore: slow gh run watch polling to 30s
+
 - Drop per-tool CLI and move REST tool/OpenAPI endpoints under `/tools/` (enabled by default)
 
 ## v2.2.1 - 2026-11-17
