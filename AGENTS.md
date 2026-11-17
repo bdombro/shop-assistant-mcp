@@ -5,18 +5,18 @@ Written for: AI coding agents working in the `shop-assistant-mcp` C++26 plugin r
 `shop-assistant-mcp` is a C++26 MCP plugin and CLI built on `slimr-*` libraries and vcpkg-managed Lexbor that lets agents search, compare offers, read product pages, and interact with guarded Brave CDP browser tabs across 22 onboarded retail sites without ever being able to purchase or access checkout/account pages.
 
 <!-- cpp-templates:begin -->
+<!-- cpp-templates:commit c746b02c9f5b17b63c4921e6adff7fa8c5f6dc37 -->
 ## Contributing
 
 Read the sections of [docs/contributing.md](docs/contributing.md) relevant to your change before editing.
 
 ## Tooling alignment
 
-Align this repository via the `cpp-templates` skill (`just check <template> .`). Keep repository-specific rules outside `<!-- cpp-templates:begin -->` and `<!-- cpp-templates:end -->`. Do not hand-edit verbatim template files or template recipes (repositories may add extra recipes or variables).
+Align this repository via the `cpp-templates` skill, which diffs `base/` and `templates/<template>/` since the `<!-- cpp-templates:commit <sha> -->` marker above and adapts changes while preserving repository customizations. Keep repository-specific rules outside `<!-- cpp-templates:begin -->` and `<!-- cpp-templates:end -->`.
 
 ## Edit-don't-rewrite
 
 - Make targeted edits and move files with `git mv`; never regenerate files from scratch or retype them from memory.
-- Template files arrive through `just new` or `just sync`.
 - Never delete, skip, or loosen tests to pass; if a test must change, explain why in the commit message.
 
 ## C++ Memory Safety
