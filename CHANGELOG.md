@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Default HTTP bind is now `127.0.0.1` (pass `--host 0.0.0.0` to expose) via `slimr-serve` v0.3.0
+- Serve OpenAPI 3.1 spec at `GET /openapi.json` and dump via `--openapi` (`slimr-serve` v0.2.0+, `slimr-mcp` v0.2.1)
+- Internal: pin `slimr-serve` v0.3.0 and `slimr-mcp` v0.2.1 baselines, sync `scripts/test-mcp.ts`, and document overlay-ports workflow
+
 ## v2.2.0 - 2026-11-16
 
 - Migrate to slimr-serve typed tool handlers and drop stdio `mcp` mode

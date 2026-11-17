@@ -81,7 +81,7 @@ plugins/shop-assistant-mcp/
 
 ## HTTP & Client Configuration (MCP `2026-07-28`)
 
-`shop-assistant-mcp` defaults to Streamable HTTP on `0.0.0.0:10005/mcp` (`shop-assistant-mcp http`) while preserving direct JSON CLI invocation (`shop-assistant-mcp <tool> ['{...}']`).
+`shop-assistant-mcp` defaults to Streamable HTTP on `127.0.0.1:10005/mcp` (`shop-assistant-mcp http`; pass `--host 0.0.0.0` to expose) while preserving direct JSON CLI invocation (`shop-assistant-mcp <tool> ['{...}']`).
 
 > **Breaking change (MCP `2026-07-28`):** Legacy `initialize` / `notifications/initialized` session handshakes are replaced by stateless `server/discover` with `MCP-Protocol-Version: 2026-07-28` and `Mcp-Method` headers (legacy `initialize` returns `-32601`).
 
@@ -184,3 +184,17 @@ just release patch # Trigger release.yml, watch completion, and pull the release
 ```
 
 `just test` and `just test-mcp` run the server with an isolated HOME/XDG environment, no external CLI PATH or credentials, `SHOP_ASSISTANT_DIALOGS=off`, and Bugsink disabled; they never open browser tabs or invoke external retail sites. `platforms` is set to `macos` (`macos-26` runner in CI).
+
+## Develop against an unreleased lib
+
+Add `"overlay-ports"` to the consumer's `vcpkg-configuration.json`, then run `just test` or `just build` as usual (add one entry per unreleased lib):
+
+```json
+{
+  "overlay-ports": [
+    "<relative path to ~/dev/slimr/<name>/ports/slimr-<name>>"
+  ]
+}
+```
+
+Remove `"overlay-ports"` and bump the registry baseline once the lib is released. Never commit or release with `overlay-ports` set.

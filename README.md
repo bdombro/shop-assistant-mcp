@@ -66,7 +66,7 @@ brew services restart shop-assistant-mcp
 brew services stop shop-assistant-mcp
 ```
 
-The HTTP server binds `0.0.0.0:10005` (`http://127.0.0.1:10005/mcp` locally)
+The HTTP server binds `127.0.0.1:10005` (`http://127.0.0.1:10005/mcp`; pass `--host 0.0.0.0` to expose)
 and writes rotated logs to `$(brew --prefix)/var/log/shop-assistant-mcp.log`
 (rotates to `shop-assistant-mcp.log.1` at 10 MiB). Data lives in
 `$(brew --prefix)/var/shop-assistant-mcp/`. To run in the foreground instead,
